@@ -312,3 +312,60 @@ export function getPowerUserDailyData(powerUsers: PowerUserData[]): Array<{
     .map(([date, requests]) => ({ date, requests }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// Utility functions for percentage calculations
+export function calculatePercentage(value: number, total: number): number {
+  if (total === 0) return 0;
+  return (value / total) * 100;
+}
+
+export function formatPercentage(percentage: number, decimals: number = 1): string {
+  return `${percentage.toFixed(decimals)}%`;
+}
+
+// Interface for request status summary with percentages
+export interface RequestStatusSummary {
+  totalRequests: number;
+  compliantRequests: number;
+  exceedingRequests: number;
+  compliantPercentage: number;
+  exceedingPercentage: number;
+}
+
+// Calculate overall request status summary with percentages
+export function getRequestStatusSummary(data: CopilotUsageData[]): RequestStatusSummary {
+  const totalRequests = data.reduce((sum, item) => sum + item.requestsUsed, 0);
+  const compliantRequests = data
+    .filter(item => !item.exceedsQuota)
+    .reduce((sum, item) => sum + item.requestsUsed, 0);
+  const exceedingRequests = data
+    .filter(item => item.exceedsQuota)
+    .reduce((sum, item) => sum + item.requestsUsed, 0);
+
+  return {
+    totalRequests,
+    compliantRequests,
+    exceedingRequests,
+    compliantPercentage: calculatePercentage(compliantRequests, totalRequests),
+    exceedingPercentage: calculatePercentage(exceedingRequests, totalRequests)
+  };
+}
+
+// Enhanced model usage summary with percentages
+export interface ModelUsageSummaryWithPercentage extends ModelUsageSummary {
+  percentage: number;
+  compliantPercentage: number;
+  exceedingPercentage: number;
+}
+
+export function getModelUsageSummaryWithPercentages(data: CopilotUsageData[]): ModelUsageSummaryWithPercentage[] {
+  const totalAllRequests = data.reduce((sum, item) => sum + item.requestsUsed, 0);
+  const baseSummary = getModelUsageSummary(data);
+  
+  return baseSummary.map(item => ({
+    ...item,
+    percentage: calculatePercentage(item.totalRequests, totalAllRequests),
+    compliantPercentage: calculatePercentage(item.compliantRequests, item.totalRequests),
+    exceedingPercentage: calculatePercentage(item.exceedingRequests, item.totalRequests)
+  }));
+}

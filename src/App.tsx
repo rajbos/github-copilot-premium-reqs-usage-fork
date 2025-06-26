@@ -15,14 +15,19 @@ import {
   AggregatedData, 
   CopilotUsageData, 
   ModelUsageSummary,
+  ModelUsageSummaryWithPercentage,
   DailyModelData,
   PowerUserSummary,
+  RequestStatusSummary,
   aggregateDataByDay, 
   parseCSV,
   getModelUsageSummary,
+  getModelUsageSummaryWithPercentages,
+  getRequestStatusSummary,
   getDailyModelData,
   getPowerUsers,
-  getPowerUserDailyData
+  getPowerUserDailyData,
+  formatPercentage
 } from "@/lib/utils";
 
 function App() {
@@ -30,6 +35,8 @@ function App() {
   const [aggregatedData, setAggregatedData] = useState<AggregatedData[]>([]);
   const [uniqueModels, setUniqueModels] = useState<string[]>([]);
   const [modelSummary, setModelSummary] = useState<ModelUsageSummary[]>([]);
+  const [modelSummaryWithPercentages, setModelSummaryWithPercentages] = useState<ModelUsageSummaryWithPercentage[]>([]);
+  const [requestStatusSummary, setRequestStatusSummary] = useState<RequestStatusSummary | null>(null);
   const [dailyModelData, setDailyModelData] = useState<DailyModelData[]>([]);
   const [powerUserSummary, setPowerUserSummary] = useState<PowerUserSummary | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -84,6 +91,14 @@ function App() {
         const summary = getModelUsageSummary(parsedData);
         setModelSummary(summary);
         
+        // Get model usage summary with percentages
+        const summaryWithPercentages = getModelUsageSummaryWithPercentages(parsedData);
+        setModelSummaryWithPercentages(summaryWithPercentages);
+        
+        // Get request status summary with percentages
+        const statusSummary = getRequestStatusSummary(parsedData);
+        setRequestStatusSummary(statusSummary);
+        
         // Get daily model data for bar chart
         const dailyData = getDailyModelData(parsedData);
         setDailyModelData(dailyData);
@@ -129,6 +144,8 @@ function App() {
         setData(null);
         setAggregatedData([]);
         setModelSummary([]);
+        setModelSummaryWithPercentages([]);
+        setRequestStatusSummary(null);
         setDailyModelData([]);
         setPowerUserSummary(null);
       }
@@ -516,6 +533,44 @@ function App() {
               </Card>
             </div>
             
+            {/* Request Status Summary with Percentages */}
+            {requestStatusSummary && (
+              <div className="mb-6">
+                <Card className="p-5">
+                  <h3 className="text-md font-medium mb-3">Request Status Overview</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {requestStatusSummary.compliantRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Compliant Requests</div>
+                      <div className="text-lg font-semibold text-green-600">
+                        {formatPercentage(requestStatusSummary.compliantPercentage)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">
+                        {requestStatusSummary.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Exceeding Quota</div>
+                      <div className="text-lg font-semibold text-red-600">
+                        {formatPercentage(requestStatusSummary.exceedingPercentage)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {requestStatusSummary.totalRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Requests</div>
+                      <div className="text-lg font-semibold">
+                        100%
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+            
             {/* Model Usage Table */}
             <div className="mb-6">
               <Card className="p-5">
@@ -526,17 +581,29 @@ function App() {
                       <TableRow>
                         <TableHead>Model</TableHead>
                         <TableHead className="text-right">Total Requests</TableHead>
+                        <TableHead className="text-right">% of Total</TableHead>
                         <TableHead className="text-right">Compliant</TableHead>
                         <TableHead className="text-right">Exceeding</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {modelSummary.map((item) => (
+                      {modelSummaryWithPercentages.map((item) => (
                         <TableRow key={item.model}>
                           <TableCell className="font-medium">{item.model}</TableCell>
                           <TableCell className="text-right">{item.totalRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
-                          <TableCell className="text-right">{item.compliantRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
-                          <TableCell className="text-right">{item.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatPercentage(item.percentage)}</TableCell>
+                          <TableCell className="text-right">
+                            {item.compliantRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({formatPercentage(item.compliantPercentage)})
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({formatPercentage(item.exceedingPercentage)})
+                            </span>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
