@@ -19,12 +19,14 @@ import {
   ModelUsageSummary,
   DailyModelData,
   PowerUserSummary,
+  PowerUserDailyBreakdown,
   aggregateDataByDay, 
   parseCSV,
   getModelUsageSummary,
   getDailyModelData,
   getPowerUsers,
   getPowerUserDailyData,
+  getPowerUserDailyBreakdown,
   getLastDateFromData
 } from "@/lib/utils";
 
@@ -35,6 +37,7 @@ function App() {
   const [modelSummary, setModelSummary] = useState<ModelUsageSummary[]>([]);
   const [dailyModelData, setDailyModelData] = useState<DailyModelData[]>([]);
   const [powerUserSummary, setPowerUserSummary] = useState<PowerUserSummary | null>(null);
+  const [powerUserDailyBreakdown, setPowerUserDailyBreakdown] = useState<PowerUserDailyBreakdown[]>([]);
   const [lastDateAvailable, setLastDateAvailable] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -95,6 +98,11 @@ function App() {
         // Get power users data
         const powerUsers = getPowerUsers(parsedData);
         setPowerUserSummary(powerUsers);
+        
+        // Get power user daily breakdown for the stacked bar chart
+        const powerUserNames = powerUsers.powerUsers.map(user => user.user);
+        const powerUserBreakdown = getPowerUserDailyBreakdown(parsedData, powerUserNames);
+        setPowerUserDailyBreakdown(powerUserBreakdown);
         
         // Get the last date available in the CSV
         const lastDate = getLastDateFromData(parsedData);
@@ -492,6 +500,81 @@ function App() {
                                       activeDot={{ r: 6 }}
                                     />
                                   </LineChart>
+                                </ChartContainer>
+                              </div>
+                            </Card>
+                            
+                            {/* Power User Requests Breakdown - Stacked Bar Chart */}
+                            <Card className="p-4">
+                              <h3 className="text-md font-medium mb-3">Power User Requests Breakdown (Compliant vs Exceeding)</h3>
+                              <div className="h-[300px]">
+                                <ChartContainer 
+                                  config={{
+                                    compliantRequests: { color: "#10b981" }, // green
+                                    exceedingRequests: { color: "#ef4444" }, // red
+                                  }}
+                                  className="h-full w-full"
+                                >
+                                  <BarChart data={powerUserDailyBreakdown}>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                                    <XAxis 
+                                      dataKey="date" 
+                                      tick={{ fill: 'var(--foreground)' }}
+                                      tickLine={{ stroke: 'var(--border)' }}
+                                      domain={['dataMin', lastDateAvailable || 'dataMax']}
+                                    />
+                                    <YAxis 
+                                      tick={{ fill: 'var(--foreground)' }}
+                                      tickLine={{ stroke: 'var(--border)' }} 
+                                    />
+                                    <ChartTooltip
+                                      content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                          const compliant = payload.find(p => p.dataKey === 'compliantRequests')?.value || 0;
+                                          const exceeding = payload.find(p => p.dataKey === 'exceedingRequests')?.value || 0;
+                                          const total = Number(compliant) + Number(exceeding);
+                                          
+                                          return (
+                                            <div className="border rounded-lg bg-background shadow-lg p-3 text-xs">
+                                              <div className="font-medium mb-2">{label}</div>
+                                              <div className="space-y-2">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                                                    <span>Compliant:</span>
+                                                  </div>
+                                                  <div className="text-right">{Number(compliant).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</div>
+                                                  <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                                                    <span>Exceeding:</span>
+                                                  </div>
+                                                  <div className="text-right">{Number(exceeding).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</div>
+                                                  <div className="font-medium">Total:</div>
+                                                  <div className="text-right font-medium">{Number(total).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      }}
+                                    />
+                                    <Legend />
+                                    
+                                    {/* Stacked bars for compliant and exceeding requests */}
+                                    <Bar
+                                      dataKey="compliantRequests"
+                                      name="Compliant Requests"
+                                      stackId="requests"
+                                      fill="#10b981"
+                                    />
+                                    <Bar
+                                      dataKey="exceedingRequests"
+                                      name="Exceeding Requests"
+                                      stackId="requests"
+                                      fill="#ef4444"
+                                    />
+                                  </BarChart>
                                 </ChartContainer>
                               </div>
                             </Card>

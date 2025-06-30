@@ -232,6 +232,12 @@ export interface PowerUserSummary {
   powerUserModelSummary: ModelUsageSummary[];
 }
 
+export interface PowerUserDailyBreakdown {
+  date: string;
+  compliantRequests: number;
+  exceedingRequests: number;
+}
+
 
 
 export function getPowerUsers(data: CopilotUsageData[]): PowerUserSummary {
@@ -316,6 +322,34 @@ export function getPowerUserDailyData(powerUsers: PowerUserData[]): Array<{
   return Object.entries(dailyTotals)
     .map(([date, requests]) => ({ date, requests }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function getPowerUserDailyBreakdown(data: CopilotUsageData[], powerUserNames: string[]): PowerUserDailyBreakdown[] {
+  // Filter data to only include power users
+  const powerUserData = data.filter(item => powerUserNames.includes(item.user));
+  
+  const dailyBreakdown: Record<string, PowerUserDailyBreakdown> = {};
+  
+  powerUserData.forEach(item => {
+    const date = item.timestamp.toISOString().split('T')[0];
+    
+    if (!dailyBreakdown[date]) {
+      dailyBreakdown[date] = {
+        date,
+        compliantRequests: 0,
+        exceedingRequests: 0,
+      };
+    }
+    
+    if (item.exceedsQuota) {
+      dailyBreakdown[date].exceedingRequests += item.requestsUsed;
+    } else {
+      dailyBreakdown[date].compliantRequests += item.requestsUsed;
+    }
+  });
+  
+  // Convert to array and sort by date
+  return Object.values(dailyBreakdown).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // Function to get the last date from CSV data
