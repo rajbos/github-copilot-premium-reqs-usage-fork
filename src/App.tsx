@@ -630,6 +630,7 @@ function App() {
                                     <TableRow>
                                       <TableHead>User</TableHead>
                                       <TableHead className="text-right">Total Requests</TableHead>
+                                      <TableHead className="text-right">Exceeding Requests</TableHead>
                                       <TableHead className="text-right">Models Used</TableHead>
                                     </TableRow>
                                   </TableHeader>
@@ -644,6 +645,7 @@ function App() {
                                           {user.user}
                                         </TableCell>
                                         <TableCell className="text-right">{user.totalRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
+                                        <TableCell className="text-right">{user.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
                                         <TableCell className="text-right">{Object.keys(user.requestsByModel).length}</TableCell>
                                       </TableRow>
                                     ))}

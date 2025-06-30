@@ -218,6 +218,7 @@ export function getDailyModelData(data: CopilotUsageData[]): DailyModelData[] {
 export interface PowerUserData {
   user: string;
   totalRequests: number;
+  exceedingRequests: number;
   requestsByModel: Record<string, number>;
   dailyActivity: Array<{
     date: string;
@@ -271,6 +272,11 @@ export function getPowerUsers(data: CopilotUsageData[]): PowerUserSummary {
       requestsByModel[item.model] = (requestsByModel[item.model] || 0) + item.requestsUsed;
     });
     
+    // Calculate exceeding requests
+    const exceedingRequests = userRequests
+      .filter(item => item.exceedsQuota)
+      .reduce((sum, item) => sum + item.requestsUsed, 0);
+    
     // Aggregate daily activity
     const dailyActivity: Record<string, number> = {};
     userRequests.forEach(item => {
@@ -285,6 +291,7 @@ export function getPowerUsers(data: CopilotUsageData[]): PowerUserSummary {
     return {
       user: userName,
       totalRequests: userTotals[userName],
+      exceedingRequests,
       requestsByModel,
       dailyActivity: dailyActivityArray
     };
