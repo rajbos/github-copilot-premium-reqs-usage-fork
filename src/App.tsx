@@ -38,11 +38,26 @@ function App() {
   const [dailyModelData, setDailyModelData] = useState<DailyModelData[]>([]);
   const [powerUserSummary, setPowerUserSummary] = useState<PowerUserSummary | null>(null);
   const [powerUserDailyBreakdown, setPowerUserDailyBreakdown] = useState<PowerUserDailyBreakdown[]>([]);
+  const [selectedPowerUser, setSelectedPowerUser] = useState<string | null>(null);
   const [lastDateAvailable, setLastDateAvailable] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const handlePowerUserSelect = useCallback((userName: string | null) => {
+    setSelectedPowerUser(userName);
+  }, []);
+
+  // Generate filtered power user daily breakdown based on selected user
+  const getFilteredPowerUserBreakdown = useCallback(() => {
+    if (!selectedPowerUser || !data) {
+      return powerUserDailyBreakdown;
+    }
+    
+    // Filter the original data to only include the selected user, then regenerate breakdown
+    return getPowerUserDailyBreakdown(data, [selectedPowerUser]);
+  }, [selectedPowerUser, data, powerUserDailyBreakdown]);
+
   const processFile = useCallback((file: File) => {
     if (!file) return;
     
@@ -108,6 +123,9 @@ function App() {
         const lastDate = getLastDateFromData(parsedData);
         setLastDateAvailable(lastDate);
         
+        // Reset selected power user when new data is loaded
+        setSelectedPowerUser(null);
+        
         setIsProcessing(false);
         toast.success(`Loaded ${parsedData.length} records successfully`);
       } catch (error) {
@@ -147,6 +165,8 @@ function App() {
         setModelSummary([]);
         setDailyModelData([]);
         setPowerUserSummary(null);
+        setPowerUserDailyBreakdown([]);
+        setSelectedPowerUser(null);
         setLastDateAvailable(null);
       }
     };
@@ -506,7 +526,29 @@ function App() {
                             
                             {/* Power User Requests Breakdown - Stacked Bar Chart */}
                             <Card className="p-4">
-                              <h3 className="text-md font-medium mb-3">Power User Requests Breakdown (Compliant vs Exceeding)</h3>
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 
+                                  className={`text-md font-medium ${selectedPowerUser ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                                  onClick={() => selectedPowerUser && handlePowerUserSelect(null)}
+                                  title={selectedPowerUser ? 'Click to show all power users' : undefined}
+                                >
+                                  Power User Requests Breakdown (Compliant vs Exceeding)
+                                  {selectedPowerUser && (
+                                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                                      - {selectedPowerUser}
+                                    </span>
+                                  )}
+                                </h3>
+                                {selectedPowerUser && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handlePowerUserSelect(null)}
+                                  >
+                                    Show All
+                                  </Button>
+                                )}
+                              </div>
                               <div className="h-[300px]">
                                 <ChartContainer 
                                   config={{
@@ -515,7 +557,7 @@ function App() {
                                   }}
                                   className="h-full w-full"
                                 >
-                                  <BarChart data={powerUserDailyBreakdown}>
+                                  <BarChart data={getFilteredPowerUserBreakdown()}>
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                                     <XAxis 
                                       dataKey="date" 
@@ -594,7 +636,13 @@ function App() {
                                   <TableBody>
                                     {powerUserSummary.powerUsers.map((user) => (
                                       <TableRow key={user.user}>
-                                        <TableCell className="font-medium">{user.user}</TableCell>
+                                        <TableCell 
+                                          className={`font-medium cursor-pointer hover:text-blue-600 transition-colors ${selectedPowerUser === user.user ? 'text-blue-600 font-bold' : ''}`}
+                                          onClick={() => handlePowerUserSelect(user.user)}
+                                          title="Click to filter chart to this user"
+                                        >
+                                          {user.user}
+                                        </TableCell>
                                         <TableCell className="text-right">{user.totalRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}</TableCell>
                                         <TableCell className="text-right">{Object.keys(user.requestsByModel).length}</TableCell>
                                       </TableRow>
