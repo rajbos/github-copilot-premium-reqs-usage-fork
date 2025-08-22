@@ -567,3 +567,12 @@ export function getUserExceededRequestSummary(data: CopilotUsageData[], userName
     },
   };
 }
+
+/**
+ * Get the count of unique users who have exceeded their quota limits
+ */
+export function getUniqueUsersExceedingQuota(data: CopilotUsageData[]): number {
+  const exceededDetails = getExceededRequestDetails(data);
+  const uniqueUsers = new Set(exceededDetails.map(detail => detail.user));
+  return uniqueUsers.size;
+}
