@@ -314,16 +314,16 @@ function App() {
   
   // Generate colors for models in bar chart
   const getModelColors = useCallback(() => {
-    // Use a set of predefined colors that are visually distinct
+    // Use a set of predefined colors that are visually distinct from exceeding requests red (#ef4444)
     const colors = [
       "#4285F4", // Blue
-      "#EA4335", // Red
+      "#9C27B0", // Purple (changed from red to avoid confusion with exceeding requests)
       "#FBBC05", // Yellow
       "#34A853", // Green
       "#8E44AD", // Purple
       "#F39C12", // Orange
       "#16A085", // Teal
-      "#E74C3C", // Red-Orange
+      "#FF9800", // Amber (changed from red-orange to avoid confusion with exceeding requests)
       "#3498DB", // Light Blue
       "#1ABC9C"  // Turquoise
     ];
