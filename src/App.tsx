@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, DragEvent } from "react";
+import React, { useState, useCallback, useRef, DragEvent, useEffect } from "react";
 import { Upload, GithubLogo, CircleNotch } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 import {
@@ -57,6 +57,14 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [usersExceedingQuota, setUsersExceedingQuota] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Recalculate users exceeding quota when plan selection changes
+  useEffect(() => {
+    if (data && data.length > 0) {
+      const exceedingUsersCount = getUniqueUsersExceedingQuota(data, selectedPlan);
+      setUsersExceedingQuota(exceedingUsersCount);
+    }
+  }, [selectedPlan, data]);
   
   const handlePowerUserSelect = useCallback((userName: string | null) => {
     setSelectedPowerUser(userName);
@@ -140,7 +148,7 @@ function App() {
         setPowerUserDailyBreakdown(powerUserBreakdown);
         
         // Get count of users exceeding quota for top bar display
-        const exceedingUsersCount = getUniqueUsersExceedingQuota(parsedData);
+        const exceedingUsersCount = getUniqueUsersExceedingQuota(parsedData, selectedPlan);
         setUsersExceedingQuota(exceedingUsersCount);
         
         // Get the last date available in the CSV
