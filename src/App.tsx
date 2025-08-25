@@ -544,7 +544,7 @@ function App() {
                         onClick={() => setShowPotentialCostDetails(true)}
                         title="Click to see cost breakdown"
                       >
-                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
+                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
                     {powerUserSummary && (
