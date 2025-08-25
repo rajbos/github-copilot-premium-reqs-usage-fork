@@ -37,6 +37,7 @@ import {
   getUserExceededRequestSummary,
   getUniqueUsersExceedingQuota,
   getTotalRequestsForUsersExceedingQuota,
+  getProjectedUsersExceedingQuota,
   EXCESS_REQUEST_COST
 } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ function App() {
   const [exceededDetailsData, setExceededDetailsData] = useState<ExceededRequestDetail[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [usersExceedingQuota, setUsersExceedingQuota] = useState<number>(0);
+  const [projectedUsersExceedingQuota, setProjectedUsersExceedingQuota] = useState<number>(0);
   const [showPotentialCostDetails, setShowPotentialCostDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -66,6 +68,9 @@ function App() {
     if (data && data.length > 0) {
       const exceedingUsersCount = getUniqueUsersExceedingQuota(data, selectedPlan);
       setUsersExceedingQuota(exceedingUsersCount);
+      
+      const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(data, selectedPlan);
+      setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
     }
   }, [selectedPlan, data]);
   
@@ -153,6 +158,10 @@ function App() {
         // Get count of users exceeding quota for top bar display
         const exceedingUsersCount = getUniqueUsersExceedingQuota(parsedData, selectedPlan);
         setUsersExceedingQuota(exceedingUsersCount);
+        
+        // Get projected count of users who will exceed quota by month-end
+        const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(parsedData, selectedPlan);
+        setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
         
         // Get the last date available in the CSV
         const lastDate = getLastDateFromData(parsedData);
@@ -535,6 +544,12 @@ function App() {
                       <span className="text-sm text-muted-foreground">Users Exceeding Quota:</span>
                       <span className="text-lg font-bold text-red-600">
                         {usersExceedingQuota.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Projected to Exceed by Month-End:</span>
+                      <span className="text-lg font-bold text-orange-600">
+                        {projectedUsersExceedingQuota.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
