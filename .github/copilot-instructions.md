@@ -84,6 +84,7 @@ interface AggregatedData {
 3. **Charts**: Line graphs and bar charts for usage visualization
 4. **Error States**: Clear validation messaging and error feedback
 5. **Loading States**: Appropriate loading indicators
+6. **Number Formatting**: Always display thousand separators in all places where numbers are shown to improve readability
 
 ### Component Conventions
 - Use `cn()` utility for conditional class names
@@ -168,3 +169,4 @@ When working on this project, you'll likely need to:
 - All data processing happens in the browser
 - CSV files are processed locally (not uploaded to servers)
 - The app is designed for periodic usage reporting, not real-time monitoring
+- **Minimal Changes**: Only modify files that are absolutely necessary to implement the requested features - avoid unnecessary changes to unrelated files
