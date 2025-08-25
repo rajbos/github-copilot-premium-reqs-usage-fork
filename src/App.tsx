@@ -1257,7 +1257,7 @@ function App() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Total Hypothetical Cost:</span>
                       <span className="font-bold text-orange-600 text-lg">
-                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
+                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
                   </div>
@@ -1281,7 +1281,7 @@ function App() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Cost for Exceeding Requests Only:</span>
                       <span className="font-bold text-red-600 text-lg">
-                        ${(getTotalRequestsForUsersExceedingQuota(data, selectedPlan) * EXCESS_REQUEST_COST).toFixed(2)}
+                        ${(getTotalRequestsForUsersExceedingQuota(data, selectedPlan) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
                   </div>
