@@ -82,6 +82,20 @@ npm run deploy
 - shadcn/ui components
 - Tailwind CSS
 
+## GitHub Copilot Integration
+
+This project includes custom instructions for GitHub Copilot to provide better code suggestions and understand the project context. The setup includes:
+
+- **Custom Instructions**: See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for comprehensive project context
+- **VS Code Settings**: Optimized Copilot settings in [`.vscode/settings.json`](.vscode/settings.json)
+- **Extension Recommendations**: Suggested VS Code extensions in [`.vscode/extensions.json`](.vscode/extensions.json)
+
+The custom instructions help Copilot understand:
+- Project architecture and data flow
+- CSV processing and validation patterns
+- UI component conventions and styling
+- Testing patterns and deployment processes
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
