@@ -36,6 +36,7 @@ import {
   getExceededRequestDetails,
   getUserExceededRequestSummary,
   getUniqueUsersExceedingQuota,
+  getTotalRequestsForUsersExceedingQuota,
   EXCESS_REQUEST_COST
 } from "@/lib/utils";
 
@@ -1269,7 +1270,7 @@ function App() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Exceeding Requests:</span>
                       <span className="font-bold text-red-600">
-                        {data.filter(item => item.exceedsQuota).reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                        {getTotalRequestsForUsersExceedingQuota(data, selectedPlan).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -1280,7 +1281,7 @@ function App() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Cost for Exceeding Requests Only:</span>
                       <span className="font-bold text-red-600 text-lg">
-                        ${(data.filter(item => item.exceedsQuota).reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
+                        ${(getTotalRequestsForUsersExceedingQuota(data, selectedPlan) * EXCESS_REQUEST_COST).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1291,7 +1292,7 @@ function App() {
                   <h3 className="text-md font-medium mb-3">Summary</h3>
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p><strong>All Premium Requests:</strong> Shows the hypothetical cost if all premium requests were charged at ${EXCESS_REQUEST_COST} each, regardless of user quotas.</p>
-                    <p><strong>Exceeding Users Only:</strong> Shows the cost for only the premium requests that actually exceed the 300 monthly request limit per user.</p>
+                    <p><strong>Exceeding Users Only:</strong> Shows the cost for all requests made by users who have exceeded the {selectedPlan === COPILOT_PLANS.INDIVIDUAL ? '50' : selectedPlan === COPILOT_PLANS.BUSINESS ? '300' : '1000'} monthly request limit per user.</p>
                   </div>
                 </Card>
               </>
