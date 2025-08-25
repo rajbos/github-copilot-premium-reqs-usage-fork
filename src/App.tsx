@@ -35,7 +35,8 @@ import {
   getLastDateFromData,
   getExceededRequestDetails,
   getUserExceededRequestSummary,
-  getUniqueUsersExceedingQuota
+  getUniqueUsersExceedingQuota,
+  EXCESS_REQUEST_COST
 } from "@/lib/utils";
 
 function App() {
@@ -532,6 +533,12 @@ function App() {
                       <span className="text-sm text-muted-foreground">Users Exceeding Quota:</span>
                       <span className="text-lg font-bold text-red-600">
                         {usersExceedingQuota.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Potential Cost:</span>
+                      <span className="text-lg font-bold text-orange-600">
+                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
                       </span>
                     </div>
                     {powerUserSummary && (
