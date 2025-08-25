@@ -57,6 +57,7 @@ function App() {
   const [exceededDetailsData, setExceededDetailsData] = useState<ExceededRequestDetail[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [usersExceedingQuota, setUsersExceedingQuota] = useState<number>(0);
+  const [showPotentialCostDetails, setShowPotentialCostDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Recalculate users exceeding quota when plan selection changes
@@ -537,7 +538,11 @@ function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Potential Cost:</span>
-                      <span className="text-lg font-bold text-orange-600">
+                      <span 
+                        className="text-lg font-bold text-orange-600 cursor-pointer hover:text-orange-700 transition-colors"
+                        onClick={() => setShowPotentialCostDetails(true)}
+                        title="Click to see cost breakdown"
+                      >
                         ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
                       </span>
                     </div>
@@ -1218,6 +1223,78 @@ function App() {
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">No exceeded request details found for the selected criteria.</p>
               </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Potential Cost Details Dialog */}
+      <Dialog open={showPotentialCostDetails} onOpenChange={setShowPotentialCostDetails}>
+        <DialogContent className="w-[90vw] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Potential Cost Breakdown</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {data && (
+              <>
+                {/* All Premium Requests */}
+                <Card className="p-4">
+                  <h3 className="text-md font-medium mb-3">All Premium Requests</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Requests:</span>
+                      <span className="font-bold">
+                        {data.reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Cost per Request:</span>
+                      <span className="font-bold">${EXCESS_REQUEST_COST.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Total Hypothetical Cost:</span>
+                      <span className="font-bold text-orange-600 text-lg">
+                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Exceeding Users Only */}
+                <Card className="p-4">
+                  <h3 className="text-md font-medium mb-3">Users Exceeding 300 Request Limit Only</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Exceeding Requests:</span>
+                      <span className="font-bold text-red-600">
+                        {data.filter(item => item.exceedsQuota).reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Cost per Request:</span>
+                      <span className="font-bold">${EXCESS_REQUEST_COST.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Cost for Exceeding Requests Only:</span>
+                      <span className="font-bold text-red-600 text-lg">
+                        ${(data.filter(item => item.exceedsQuota).reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Summary */}
+                <Card className="p-4 bg-secondary/20">
+                  <h3 className="text-md font-medium mb-3">Summary</h3>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong>All Premium Requests:</strong> Shows the hypothetical cost if all premium requests were charged at ${EXCESS_REQUEST_COST} each, regardless of user quotas.</p>
+                    <p><strong>Exceeding Users Only:</strong> Shows the cost for only the premium requests that actually exceed the 300 monthly request limit per user.</p>
+                  </div>
+                </Card>
+              </>
             )}
           </div>
         </DialogContent>
