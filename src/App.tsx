@@ -1384,13 +1384,13 @@ function App() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {projectedUsersData.length > 0 ? (
               <>
-                {/* Summary Card */}
+                {/* Summary Card - Left Column */}
                 <Card className="p-4">
                   <h3 className="text-md font-medium mb-3">Projection Summary</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="space-y-4">
                     <div>
                       <div className="text-sm text-muted-foreground">Users at Risk</div>
                       <div className="text-lg font-bold text-orange-600">{projectedUsersData.length}</div>
@@ -1435,21 +1435,21 @@ function App() {
                   </div>
                 </Card>
 
-                {/* Users Table */}
+                {/* Users Table - Right Column */}
                 <Card className="p-4">
                   <h3 className="text-md font-medium mb-3">
                     User Details ({projectedUsersData.length} users)
                   </h3>
-                  <div className="overflow-auto">
+                  <div className="overflow-auto max-h-[60vh]">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>User</TableHead>
-                          <TableHead className="text-right">Current Requests</TableHead>
-                          <TableHead className="text-right">Daily Average</TableHead>
-                          <TableHead className="text-right">Projected Monthly Total</TableHead>
-                          <TableHead className="text-right">Exceeding By</TableHead>
+                          <TableHead className="w-8">#</TableHead>
+                          <TableHead className="min-w-[120px]">User</TableHead>
+                          <TableHead className="text-right min-w-[80px]">Current</TableHead>
+                          <TableHead className="text-right min-w-[80px]">Daily Avg</TableHead>
+                          <TableHead className="text-right min-w-[80px]">Projected</TableHead>
+                          <TableHead className="text-right min-w-[80px]">Exceeding</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1460,20 +1460,20 @@ function App() {
                           
                           return (
                             <TableRow key={user.user}>
-                              <TableCell className="text-center text-muted-foreground font-medium">
+                              <TableCell className="text-center text-muted-foreground font-medium text-xs">
                                 {index + 1}
                               </TableCell>
-                              <TableCell className="font-medium">{user.user}</TableCell>
-                              <TableCell className="text-right">
-                                {user.currentRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                              <TableCell className="font-medium text-sm" title={user.user}>{user.user}</TableCell>
+                              <TableCell className="text-right text-sm">
+                                {user.currentRequests.toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right text-sm">
                                 {user.dailyAverage.toLocaleString(undefined, {maximumFractionDigits: 1, minimumFractionDigits: 1})}
                               </TableCell>
-                              <TableCell className="text-right font-medium text-orange-600">
+                              <TableCell className="text-right font-medium text-orange-600 text-sm">
                                 {user.projectedMonthlyTotal.toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
                               </TableCell>
-                              <TableCell className="text-right font-medium text-red-600">
+                              <TableCell className="text-right font-medium text-red-600 text-sm">
                                 +{exceedingBy.toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
                               </TableCell>
                             </TableRow>
@@ -1482,25 +1482,25 @@ function App() {
                       </TableBody>
                       <TableFooter>
                         <TableRow className="bg-muted/50">
-                          <TableCell className="text-center font-bold">
+                          <TableCell className="text-center font-bold text-xs">
                             Total
                           </TableCell>
-                          <TableCell className="font-bold">
+                          <TableCell className="font-bold text-sm">
                             {projectedUsersData.length} users
                           </TableCell>
-                          <TableCell className="text-right font-bold">
+                          <TableCell className="text-right font-bold text-sm">
                             {projectedUsersData.reduce((sum, user) => sum + user.currentRequests, 0)
-                              .toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                              .toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
                           </TableCell>
-                          <TableCell className="text-right font-bold">
+                          <TableCell className="text-right font-bold text-sm">
                             {(projectedUsersData.reduce((sum, user) => sum + user.dailyAverage, 0))
                               .toLocaleString(undefined, {maximumFractionDigits: 1, minimumFractionDigits: 1})}
                           </TableCell>
-                          <TableCell className="text-right font-bold text-orange-600">
+                          <TableCell className="text-right font-bold text-orange-600 text-sm">
                             {projectedUsersData.reduce((sum, user) => sum + user.projectedMonthlyTotal, 0)
                               .toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
                           </TableCell>
-                          <TableCell className="text-right font-bold text-red-600">
+                          <TableCell className="text-right font-bold text-red-600 text-sm">
                             {(() => {
                               const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
                                               selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
@@ -1525,11 +1525,13 @@ function App() {
                 </Card>
               </>
             ) : (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">
-                  No users are currently projected to exceed their monthly quota based on current usage patterns.
-                </p>
-              </Card>
+              <div className="col-span-1 lg:col-span-2">
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">
+                    No users are currently projected to exceed their monthly quota based on current usage patterns.
+                  </p>
+                </Card>
+              </div>
             )}
           </div>
         </DialogContent>
