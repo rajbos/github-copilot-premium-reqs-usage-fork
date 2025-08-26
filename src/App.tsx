@@ -1333,7 +1333,7 @@ function App() {
 
       {/* Projected Users Dialog */}
       <Dialog open={showProjectedUsersDialog} onOpenChange={setShowProjectedUsersDialog}>
-        <DialogContent className="w-[90vw] max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[80vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Users Projected to Exceed Monthly Quota by Month-End
@@ -1416,6 +1416,46 @@ function App() {
                           );
                         })}
                       </TableBody>
+                      <TableFooter>
+                        <TableRow className="bg-muted/50">
+                          <TableCell className="text-center font-bold">
+                            Total
+                          </TableCell>
+                          <TableCell className="font-bold">
+                            {projectedUsersData.length} users
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {projectedUsersData.reduce((sum, user) => sum + user.currentRequests, 0)
+                              .toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {(projectedUsersData.reduce((sum, user) => sum + user.dailyAverage, 0))
+                              .toLocaleString(undefined, {maximumFractionDigits: 1, minimumFractionDigits: 1})}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-orange-600">
+                            {projectedUsersData.reduce((sum, user) => sum + user.projectedMonthlyTotal, 0)
+                              .toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-red-600">
+                            {(() => {
+                              const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
+                                              selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
+                              const totalExceeding = projectedUsersData.reduce((sum, user) => 
+                                sum + Math.max(0, user.projectedMonthlyTotal - planLimit), 0);
+                              const totalCost = totalExceeding * EXCESS_REQUEST_COST;
+                              
+                              return (
+                                <div className="flex flex-col items-end">
+                                  <div>+{totalExceeding.toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    ${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} cost
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
                     </Table>
                   </div>
                 </Card>
