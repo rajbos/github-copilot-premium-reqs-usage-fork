@@ -1333,7 +1333,7 @@ function App() {
 
       {/* Projected Users Dialog */}
       <Dialog open={showProjectedUsersDialog} onOpenChange={setShowProjectedUsersDialog}>
-        <DialogContent className="w-[80vw] !max-w-[80vw] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Users Projected to Exceed Monthly Quota by Month-End
@@ -1346,7 +1346,7 @@ function App() {
                 {/* Summary Card */}
                 <Card className="p-4">
                   <h3 className="text-md font-medium mb-3">Projection Summary</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div>
                       <div className="text-sm text-muted-foreground">Users at Risk</div>
                       <div className="text-lg font-bold text-orange-600">{projectedUsersData.length}</div>
@@ -1361,6 +1361,26 @@ function App() {
                     <div>
                       <div className="text-sm text-muted-foreground">Days Elapsed</div>
                       <div className="text-lg font-bold">{projectedUsersData[0]?.daysElapsed || 0} days</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Projected Monthly Total</div>
+                      <div className="text-lg font-bold text-orange-600">
+                        {projectedUsersData.reduce((sum, user) => sum + user.projectedMonthlyTotal, 0)
+                          .toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0})}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Cost</div>
+                      <div className="text-lg font-bold text-red-600">
+                        {(() => {
+                          const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
+                                          selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
+                          const totalExceeding = projectedUsersData.reduce((sum, user) => 
+                            sum + Math.max(0, user.projectedMonthlyTotal - planLimit), 0);
+                          const totalCost = totalExceeding * EXCESS_REQUEST_COST;
+                          return `$${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        })()}
+                      </div>
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">Based on Current Month Data</div>
