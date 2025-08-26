@@ -1295,7 +1295,7 @@ function App() {
 
                 {/* Exceeding Users Only */}
                 <Card className="p-4">
-                  <h3 className="text-md font-medium mb-3">Users Exceeding 300 Request Limit Only</h3>
+                  <h3 className="text-md font-medium mb-3">Users Exceeding {selectedPlan === COPILOT_PLANS.INDIVIDUAL ? '50' : selectedPlan === COPILOT_PLANS.BUSINESS ? '300' : '1,000'} Request Limit Only</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Exceeding Requests:</span>
@@ -1317,12 +1317,56 @@ function App() {
                   </div>
                 </Card>
 
+                {/* Projected Users Extra Cost */}
+                <Card className="p-4">
+                  <h3 className="text-md font-medium mb-3">Projected Users Extra Cost by Month-End</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Users Projected to Exceed:</span>
+                      <span className="font-bold text-orange-600">
+                        {projectedUsersData.length.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Projected Extra Requests:</span>
+                      <span className="font-bold text-orange-600">
+                        {(() => {
+                          const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
+                                          selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
+                          const totalExceeding = projectedUsersData.reduce((sum, user) => 
+                            sum + Math.max(0, user.projectedMonthlyTotal - planLimit), 0);
+                          return totalExceeding.toLocaleString(undefined, {maximumFractionDigits: 0, minimumFractionDigits: 0});
+                        })()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Cost per Request:</span>
+                      <span className="font-bold">${EXCESS_REQUEST_COST.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Projected Extra Cost:</span>
+                      <span className="font-bold text-orange-600 text-lg">
+                        {(() => {
+                          const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
+                                          selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
+                          const totalExceeding = projectedUsersData.reduce((sum, user) => 
+                            sum + Math.max(0, user.projectedMonthlyTotal - planLimit), 0);
+                          const totalCost = totalExceeding * EXCESS_REQUEST_COST;
+                          return `$${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
                 {/* Summary */}
                 <Card className="p-4 bg-secondary/20">
                   <h3 className="text-md font-medium mb-3">Summary</h3>
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p><strong>All Premium Requests:</strong> Shows the hypothetical cost if all premium requests were charged at ${EXCESS_REQUEST_COST} each, regardless of user quotas.</p>
                     <p><strong>Exceeding Users Only:</strong> Shows the cost for all requests made by users who have exceeded the {selectedPlan === COPILOT_PLANS.INDIVIDUAL ? '50' : selectedPlan === COPILOT_PLANS.BUSINESS ? '300' : '1000'} monthly request limit per user.</p>
+                    <p><strong>Projected Users Extra Cost:</strong> Shows the projected cost for users who are likely to exceed their monthly quota by month-end based on current usage patterns.</p>
                   </div>
                 </Card>
               </>
