@@ -1333,7 +1333,7 @@ function App() {
 
       {/* Projected Users Dialog */}
       <Dialog open={showProjectedUsersDialog} onOpenChange={setShowProjectedUsersDialog}>
-        <DialogContent className="w-[80vw] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[90vw] max-w-[90vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Users Projected to Exceed Monthly Quota by Month-End
