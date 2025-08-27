@@ -557,23 +557,23 @@ function App() {
                         {usersExceedingQuota.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors underline underline-offset-4"
+                      onClick={() => setShowProjectedUsersDialog(true)}
+                      title="Click to see detailed list"
+                    >
                       <span className="text-sm text-muted-foreground">Projected to Exceed by Month-End:</span>
-                      <span 
-                        className="text-lg font-bold text-orange-600 cursor-pointer hover:text-orange-700 transition-colors"
-                        onClick={() => setShowProjectedUsersDialog(true)}
-                        title="Click to see detailed list"
-                      >
+                      <span className="text-lg font-bold text-orange-600">
                         {projectedUsersExceedingQuota.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors underline underline-offset-4"
+                      onClick={() => setShowPotentialCostDetails(true)}
+                      title="Click to see cost breakdown"
+                    >
                       <span className="text-sm text-muted-foreground">Potential Cost:</span>
-                      <span 
-                        className="text-lg font-bold text-orange-600 cursor-pointer hover:text-orange-700 transition-colors"
-                        onClick={() => setShowPotentialCostDetails(true)}
-                        title="Click to see cost breakdown"
-                      >
+                      <span className="text-lg font-bold text-orange-600">
                         ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                     </div>
@@ -583,8 +583,8 @@ function App() {
                           <Sheet>
                             <SheetTrigger asChild>
                               <Button variant="link" className="flex items-center gap-2">
-                                <span className="text-sm">Power Users:</span>
-                                <span className="font-bold">{powerUserSummary.totalPowerUsers}</span>
+                                <span className="text-sm text-muted-foreground">Power Users:</span>
+                                <span className="text-lg font-bold">{powerUserSummary.totalPowerUsers}</span>
                               </Button>
                             </SheetTrigger>
                             <SheetContent side="bottom" className="h-[90vh] max-w-[90%] mx-auto overflow-y-auto">
