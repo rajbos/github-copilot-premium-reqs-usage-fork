@@ -558,7 +558,7 @@ function App() {
                       </span>
                     </div>
                     <div 
-                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors underline underline-offset-4"
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors"
                       onClick={() => setShowProjectedUsersDialog(true)}
                       title="Click to see detailed list"
                     >
@@ -568,7 +568,7 @@ function App() {
                       </span>
                     </div>
                     <div 
-                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors underline underline-offset-4"
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors"
                       onClick={() => setShowPotentialCostDetails(true)}
                       title="Click to see cost breakdown"
                     >
@@ -582,10 +582,10 @@ function App() {
                         <TooltipTrigger asChild>
                           <Sheet>
                             <SheetTrigger asChild>
-                              <Button variant="link" className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 cursor-pointer hover:text-blue-700 transition-colors">
                                 <span className="text-sm text-muted-foreground">Power Users:</span>
                                 <span className="text-lg font-bold">{powerUserSummary.totalPowerUsers}</span>
-                              </Button>
+                              </div>
                             </SheetTrigger>
                             <SheetContent side="bottom" className="h-[90vh] max-w-[90%] mx-auto overflow-y-auto">
                               <div className="p-7">
