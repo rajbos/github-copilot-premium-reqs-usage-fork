@@ -582,7 +582,7 @@ function App() {
                         <TooltipTrigger asChild>
                           <Sheet>
                             <SheetTrigger asChild>
-                              <Button variant="outline" className="flex items-center gap-2">
+                              <Button variant="link" className="flex items-center gap-2">
                                 <span className="text-sm">Power Users:</span>
                                 <span className="font-bold">{powerUserSummary.totalPowerUsers}</span>
                               </Button>
