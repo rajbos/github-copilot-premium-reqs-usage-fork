@@ -430,7 +430,7 @@ function App() {
         {/* Only show "All Requests" if there are multiple filter options and not all are currently visible */}
         {showAllOption && (
           <li
-            className="cursor-pointer flex items-center gap-2 text-gray-600 hover:text-black"
+            className="cursor-pointer flex items-center gap-2 text-gray-600 hover:text-black hover:bg-gray-100 dark:hover:bg-gray-800/30 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1"
             onClick={() => handleLegendClick('all')}
           >
             <span className="w-4 h-4 bg-gray-400"></span>
@@ -440,7 +440,7 @@ function App() {
         {payload.map((entry) => (
           <li
             key={entry.dataKey}
-            className="cursor-pointer flex items-center gap-2 text-gray-600 hover:text-black"
+            className="cursor-pointer flex items-center gap-2 text-gray-600 hover:text-black hover:bg-gray-100 dark:hover:bg-gray-800/30 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1"
             onClick={() => handleLegendClick(entry.dataKey)}
           >
             <span className="w-4 h-4" style={{ backgroundColor: entry.color }}></span>
@@ -558,7 +558,7 @@ function App() {
                       </span>
                     </div>
                     <div 
-                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors"
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1"
                       onClick={() => setShowProjectedUsersDialog(true)}
                       title="Click to see detailed list"
                     >
@@ -568,7 +568,7 @@ function App() {
                       </span>
                     </div>
                     <div 
-                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 transition-colors"
+                      className="flex items-center gap-2 cursor-pointer hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1"
                       onClick={() => setShowPotentialCostDetails(true)}
                       title="Click to see cost breakdown"
                     >
@@ -582,7 +582,7 @@ function App() {
                         <TooltipTrigger asChild>
                           <Sheet>
                             <SheetTrigger asChild>
-                              <div className="flex items-center gap-2 cursor-pointer hover:text-blue-700 transition-colors">
+                              <div className="flex items-center gap-2 cursor-pointer hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1">
                                 <span className="text-sm text-muted-foreground">Power Users:</span>
                                 <span className="text-lg font-bold">{powerUserSummary.totalPowerUsers}</span>
                               </div>
@@ -689,7 +689,7 @@ function App() {
                             <Card className="p-4">
                               <div className="flex items-center justify-between mb-3">
                                 <h3 
-                                  className={`text-md font-medium ${selectedPowerUser ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                                  className={`text-md font-medium ${selectedPowerUser ? 'cursor-pointer hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1' : ''}`}
                                   onClick={() => selectedPowerUser && handlePowerUserSelect(null)}
                                   title={selectedPowerUser ? 'Click to show all power users' : undefined}
                                 >
@@ -882,7 +882,7 @@ function App() {
                                           {index + 1}
                                         </TableCell>
                                         <TableCell 
-                                          className={`font-medium cursor-pointer hover:text-blue-600 transition-colors ${selectedPowerUser === user.user ? 'text-blue-600 font-bold' : ''}`}
+                                          className={`font-medium cursor-pointer hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 rounded-md px-2 py-1 -mx-2 -my-1 ${selectedPowerUser === user.user ? 'text-blue-600 font-bold' : ''}`}
                                           onClick={() => handlePowerUserSelect(user.user)}
                                           title="Click to filter chart to this user"
                                         >
