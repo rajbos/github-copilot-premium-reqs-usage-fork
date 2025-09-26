@@ -13,6 +13,12 @@ interface UserSearchProps {
   disabled?: boolean;
 }
 
+interface UserStats {
+  username: string;
+  totalRequests: number;
+  premiumRequests: number;
+}
+
 /**
  * User search component with autocomplete functionality
  * Allows searching and selecting any user from the dataset
@@ -26,20 +32,43 @@ export function UserSearch({
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
-  // Get all unique users from the data
-  const allUsers = useMemo(() => {
+  // Calculate user statistics including premium request counts
+  const userStats = useMemo(() => {
     if (!data || data.length === 0) return [];
-    const uniqueUsers = Array.from(new Set(data.map(item => item.user)));
-    return uniqueUsers.sort();
+    
+    const statsMap: Record<string, UserStats> = {};
+    
+    data.forEach(item => {
+      if (!statsMap[item.user]) {
+        statsMap[item.user] = {
+          username: item.user,
+          totalRequests: 0,
+          premiumRequests: 0
+        };
+      }
+      
+      statsMap[item.user].totalRequests += item.requestsUsed;
+      if (item.exceedsQuota) {
+        statsMap[item.user].premiumRequests += item.requestsUsed;
+      }
+    });
+    
+    // Convert to array and sort by total requests (descending), then by premium requests (descending)
+    return Object.values(statsMap).sort((a, b) => {
+      if (b.totalRequests !== a.totalRequests) {
+        return b.totalRequests - a.totalRequests;
+      }
+      return b.premiumRequests - a.premiumRequests;
+    });
   }, [data]);
 
   // Filter users based on search input
   const filteredUsers = useMemo(() => {
-    if (!searchValue) return allUsers;
-    return allUsers.filter(user => 
-      user.toLowerCase().includes(searchValue.toLowerCase())
+    if (!searchValue) return userStats;
+    return userStats.filter(user => 
+      user.username.toLowerCase().includes(searchValue.toLowerCase())
     );
-  }, [allUsers, searchValue]);
+  }, [userStats, searchValue]);
 
   const handleUserSelect = (user: string) => {
     onUserChange(user);
@@ -64,7 +93,7 @@ export function UserSearch({
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="w-[300px] justify-between"
+              className="w-[400px] justify-between"
               disabled={disabled || !data || data.length === 0}
             >
               <span className={selectedUser ? "text-foreground" : "text-muted-foreground"}>
@@ -73,26 +102,46 @@ export function UserSearch({
               <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[300px] p-0">
+          <PopoverContent className="w-[400px] p-0">
             <Command>
               <CommandInput 
                 placeholder="Search users..." 
                 value={searchValue}
                 onValueChange={setSearchValue}
               />
-              <CommandList>
+              <CommandList className="max-h-[300px]">
                 {filteredUsers.length === 0 ? (
                   <CommandEmpty>No users found.</CommandEmpty>
                 ) : (
                   <CommandGroup>
-                    {filteredUsers.map((user) => (
+                    {filteredUsers.map((userStat) => (
                       <CommandItem
-                        key={user}
-                        value={user}
-                        onSelect={() => handleUserSelect(user)}
+                        key={userStat.username}
+                        value={userStat.username}
+                        onSelect={() => handleUserSelect(userStat.username)}
                         className="cursor-pointer"
                       >
-                        {user}
+                        <div className="flex w-full items-center justify-between gap-4">
+                          <div className="flex-1 truncate">
+                            <span className="font-medium">{userStat.username}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
+                            <div className="text-right">
+                              <div className="font-medium text-foreground">
+                                {userStat.totalRequests.toLocaleString()}
+                              </div>
+                              <div className="text-xs">total</div>
+                            </div>
+                            {userStat.premiumRequests > 0 && (
+                              <div className="text-right">
+                                <div className="font-medium text-orange-600">
+                                  {userStat.premiumRequests.toLocaleString()}
+                                </div>
+                                <div className="text-xs">premium</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -117,7 +166,7 @@ export function UserSearch({
       
       {data && data.length > 0 && (
         <div className="text-sm text-muted-foreground">
-          {allUsers.length} users available
+          {userStats.length} users available
         </div>
       )}
     </div>
