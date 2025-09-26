@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, DragEvent, useEffect } from "react";
+import React, { useState, useCallback, useRef, DragEvent, useEffect, useMemo } from "react";
 import { Upload, GithubLogo, CircleNotch } from "@phosphor-icons/react";
 import { UserSquare, ChevronRight, Shield } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -100,12 +100,65 @@ function App() {
     }
   }, [selectedPlan, data, selectedSearchUser]);
 
+  // Get display data - either filtered by user or all data
+  const displayData = useMemo(() => {
+    if (!data) return null;
+    if (!selectedSearchUser) return data;
+    return data.filter(item => item.user === selectedSearchUser);
+  }, [data, selectedSearchUser]);
+
   // Reprocess data when month selection changes
   useEffect(() => {
     if (rawData && selectedMonth) {
       processDataForMonth(rawData, selectedMonth);
     }
   }, [selectedMonth, rawData, selectedPlan]);
+  
+  // Reprocess display data when user selection changes
+  useEffect(() => {
+    if (displayData && displayData.length > 0) {
+      // Get unique models from display data
+      const models = Array.from(new Set(displayData.map(item => item.model)));
+      setUniqueModels(models);
+      
+      // Aggregate data by day and model for display data
+      const aggregated = aggregateDataByDay(displayData);
+      setAggregatedData(aggregated);
+      
+      // Get model usage summary for display data
+      const summary = getModelUsageSummary(displayData);
+      setModelSummary(summary);
+      
+      // Get daily model data for bar chart for display data
+      const dailyData = getDailyModelData(displayData);
+      setDailyModelData(dailyData);
+      
+      // Get power users data for display data
+      const powerUsers = getPowerUsers(displayData);
+      setPowerUserSummary(powerUsers);
+      
+      // Get power user daily breakdown for display data
+      const powerUserNames = powerUsers.powerUsers.map(user => user.user);
+      const powerUserBreakdown = getPowerUserDailyBreakdown(displayData, powerUserNames);
+      setPowerUserDailyBreakdown(powerUserBreakdown);
+      
+      // Get count of users exceeding quota for display data
+      const exceedingUsersCount = getUniqueUsersExceedingQuota(displayData, selectedPlan);
+      setUsersExceedingQuota(exceedingUsersCount);
+      
+      // Get projected count of users who will exceed quota by month-end for display data
+      const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(displayData, selectedPlan);
+      setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
+      
+      // Get projected users details for display data
+      const projectedDetails = getProjectedUsersExceedingQuotaDetails(displayData, selectedPlan);
+      setProjectedUsersData(projectedDetails);
+      
+      // Get the last date available in the display data
+      const lastDate = getLastDateFromData(displayData);
+      setLastDateAvailable(lastDate);
+    }
+  }, [displayData, selectedPlan]);
 
   /**
    * Process data for a specific month and update all derived state
@@ -623,12 +676,24 @@ function App() {
         </Card>
       )}
       
-      {data && data.length > 0 && (
+      {displayData && displayData.length > 0 && (
         <div className="space-y-8">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-semibold mb-2">Usage Statistics</h2>
+                <h2 className="text-2xl font-semibold mb-2">
+                  Usage Statistics
+                  {selectedSearchUser && (
+                    <span className="ml-2 text-lg font-medium text-blue-600">
+                      - {selectedSearchUser}
+                    </span>
+                  )}
+                </h2>
+                {selectedSearchUser && (
+                  <p className="text-sm text-muted-foreground">
+                    Showing data filtered for selected user. All panels below reflect this user's activity only.
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <MonthSelector
@@ -647,8 +712,22 @@ function App() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-2xl font-semibold mb-2">User Analysis</h2>
-                  <p className="text-muted-foreground">Search for a specific user to view their detailed usage statistics</p>
+                  <p className="text-muted-foreground">
+                    {selectedSearchUser 
+                      ? `Currently viewing data for ${selectedSearchUser}. All panels are filtered to show only this user's activity.`
+                      : "Search for a specific user to view their detailed usage statistics"
+                    }
+                  </p>
                 </div>
+                {selectedSearchUser && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSearchUserSelect(null)}
+                    className="ml-4"
+                  >
+                    View All Users
+                  </Button>
+                )}
               </div>
               <div className="mb-4">
                 <UserSearch
@@ -763,13 +842,13 @@ function App() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Total Requests:</span>
                       <span className="text-lg font-bold">
-                        {data.reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
+                        {displayData.reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 0})}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Unique Users:</span>
                       <span className="text-lg font-bold">
-                        {new Set(data.map(item => item.user)).size.toLocaleString()}
+                        {new Set(displayData.map(item => item.user)).size.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -802,7 +881,7 @@ function App() {
                     >
                       <span className="text-sm text-muted-foreground">Potential Cost:</span>
                       <span className="value">
-                        ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        ${(displayData.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </span>
                       <ChevronRight className="icon" />
                     </div>
@@ -1146,7 +1225,14 @@ function App() {
             <div className="mb-6">
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-md font-medium">Requests per Model</h3>
+                  <h3 className="text-md font-medium">
+                    Requests per Model
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-sm font-normal text-blue-600">
+                        - {selectedSearchUser}
+                      </span>
+                    )}
+                  </h3>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Plan Type:</span>
                     <Select value={selectedPlan} onValueChange={setSelectedPlan}>
@@ -1214,7 +1300,14 @@ function App() {
           
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-2xl font-semibold">Daily Usage Overview</h2>
+              <h2 className="text-2xl font-semibold">
+                Daily Usage Overview
+                {selectedSearchUser && (
+                  <span className="ml-2 text-lg font-medium text-blue-600">
+                    - {selectedSearchUser}
+                  </span>
+                )}
+              </h2>
               {lastDateAvailable && (
                 <div className="text-sm text-muted-foreground">
                   Data available through: <span className="font-medium">{lastDateAvailable}</span>
@@ -1301,7 +1394,14 @@ function App() {
             
             {/* Bar Chart - Requests per Model per Day */}
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-2xl font-semibold">Requests per Model per Day</h2>
+              <h2 className="text-2xl font-semibold">
+                Requests per Model per Day
+                {selectedSearchUser && (
+                  <span className="ml-2 text-lg font-medium text-blue-600">
+                    - {selectedSearchUser}
+                  </span>
+                )}
+              </h2>
               {lastDateAvailable && (
                 <div className="text-sm text-muted-foreground">
                   Data available through: <span className="font-medium">{lastDateAvailable}</span>
@@ -1387,11 +1487,11 @@ function App() {
             {exceededDetailsData.length > 0 ? (
               <>
                 {/* Summary Card */}
-                {selectedPowerUser && data && (
+                {selectedPowerUser && displayData && (
                   <Card className="p-4">
                     <h3 className="text-md font-medium mb-3">User Summary</h3>
                     {(() => {
-                      const userSummary = getUserExceededRequestSummary(data, selectedPowerUser);
+                      const userSummary = getUserExceededRequestSummary(displayData, selectedPowerUser);
                       return (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
