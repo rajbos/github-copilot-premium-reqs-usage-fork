@@ -45,10 +45,6 @@ export const TokenUsageChart = React.memo(function TokenUsageChart({ data }: Tok
   const [scale, setScale] = useState<'linear' | 'log'>('linear');
   const { sortColumn, sortDirection, handleSort, sortedItems: sortedModelStats } =
     useSortableTable<ModelTokenStats, keyof ModelTokenStats>(modelStats, null, 'desc');
-
-  if (!summary.hasTokenData) return null;
-
-  const totalTokens = summary.totalInput + summary.totalOutput + summary.totalCacheRead + summary.totalCacheWrite;
   // Cache read/write tokens are typically orders of magnitude larger than
   // input/output, so on a linear scale the input/output bars can shrink to
   // the point of being invisible. A log scale keeps all series legible.
@@ -62,6 +58,10 @@ export const TokenUsageChart = React.memo(function TokenUsageChart({ data }: Tok
     })),
     [summary.daily]
   );
+
+  if (!summary.hasTokenData) return null;
+
+  const totalTokens = summary.totalInput + summary.totalOutput + summary.totalCacheRead + summary.totalCacheWrite;
 
   return (
     <div className="bg-card p-4 rounded-lg border mb-8">
