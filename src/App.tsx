@@ -55,6 +55,7 @@ import {
   getExpectedExcessCost,
   getPremiumCostDataStatus
 } from "@/lib/utils";
+import { getExportFilesForUploadedCsv } from "@/lib/csv-export";
 import { MonthSelector } from "@/components/MonthSelector";
 import { UserSearch } from "@/components/UserSearch";
 import { AICCostChart } from "@/components/AICCostChart";
@@ -532,6 +533,7 @@ function App() {
   const [modelSortDirection, setModelSortDirection] = useState<'asc' | 'desc'>('desc');
   const [totalLicensedUsers, setTotalLicensedUsers] = useState<number | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; content: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Anonymized user map: maps real user names to anonymous "User000N" labels, stable across month selections
@@ -774,6 +776,7 @@ function App() {
     setLastDateAvailable(null);
     setDailyOveruserData([]);
     setDemoMode(false);
+    setUploadedFiles([]);
   }, []);
 
   const processFiles = useCallback((files: File[]) => {
@@ -798,6 +801,8 @@ function App() {
         const allData: CopilotUsageData[] = [];
         const seenKeys = new Set<string>();
 
+        const uploadedFilesForExport: { name: string; content: string }[] = [];
+
         for (let i = 0; i < contents.length; i++) {
           const csvContent = contents[i];
           const fileName = files[i].name;
@@ -811,6 +816,7 @@ function App() {
             }
 
             const parsedData = parseCSV(csvContent);
+            uploadedFilesForExport.push({ name: fileName, content: csvContent });
 
             for (const record of parsedData) {
               const key = `${record.timestamp.toISOString()}_${record.user}_${record.model}_${record.requestsUsed}`;
@@ -830,6 +836,7 @@ function App() {
         }
 
         setRawData(allData);
+        setUploadedFiles(uploadedFilesForExport);
 
         const months = getAvailableMonths(allData);
         setAvailableMonths(months);
@@ -876,6 +883,33 @@ function App() {
     if (isProcessing) return;
     fileInputRef.current?.click();
   };
+
+  const handleExportUploadedFiles = useCallback(() => {
+    if (uploadedFiles.length === 0) return;
+
+    let exportedCount = 0;
+    for (const file of uploadedFiles) {
+      const exportFiles = getExportFilesForUploadedCsv(file.content);
+      for (const exportFile of exportFiles) {
+        const blob = new Blob([exportFile.content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = exportFile.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        exportedCount++;
+      }
+    }
+
+    if (exportedCount === 0) {
+      toast.error('No data available to export from the uploaded files.');
+    } else {
+      toast.success(`Exported ${exportedCount} file(s).`);
+    }
+  }, [uploadedFiles]);
   
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     if (isProcessing) return;
@@ -1208,6 +1242,18 @@ function App() {
               >
                 <Upload size={14} />
                 Upload New Files
+              </Button>
+            )}
+            {uploadedFiles.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportUploadedFiles}
+                disabled={isProcessing}
+                className="flex items-center gap-2"
+                title="Download the uploaded CSV data back out as separate files, one per month, named <identifier>-YYYYMM.csv"
+              >
+                Export Uploaded Files
               </Button>
             )}
             <Button variant="outline" size="sm" asChild>
