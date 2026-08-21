@@ -1536,3 +1536,181 @@ export function getPremiumCostData(data: CopilotUsageData[], groupBy: PremiumCos
   return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
 }
 
+// ─── Auto model usage ("Auto: <model>" vs explicitly selected models) ────────
+
+export interface AutoModelUsagePoint {
+  date: string;           // YYYY-MM-DD (UTC)
+  autoRequests: number;
+  specificRequests: number;
+  autoPct: number;        // 0-100
+  specificPct: number;    // 0-100
+}
+
+export interface AutoModelUsageSummary {
+  daily: AutoModelUsagePoint[];
+  totalAuto: number;
+  totalSpecific: number;
+  autoPct: number;        // overall 0-100
+  hasAutoData: boolean;   // whether any "Auto: " model usage exists
+}
+
+export function isAutoModel(model: string): boolean {
+  return /^auto:\s*/i.test(model);
+}
+
+/**
+ * Aggregates requests per day split by models selected via the "Auto: " router
+ * versus explicitly chosen models, with percentages.
+ */
+export function getAutoModelUsageData(data: CopilotUsageData[]): AutoModelUsageSummary {
+  const empty: AutoModelUsageSummary = { daily: [], totalAuto: 0, totalSpecific: 0, autoPct: 0, hasAutoData: false };
+  if (!data.length) return empty;
+
+  const byDate: Record<string, { auto: number; specific: number }> = {};
+  let totalAuto = 0;
+  let totalSpecific = 0;
+
+  data.forEach(item => {
+    const dateStr = item.timestamp.toISOString().split('T')[0];
+    if (!byDate[dateStr]) byDate[dateStr] = { auto: 0, specific: 0 };
+    if (isAutoModel(item.model)) {
+      byDate[dateStr].auto += item.requestsUsed;
+      totalAuto += item.requestsUsed;
+    } else {
+      byDate[dateStr].specific += item.requestsUsed;
+      totalSpecific += item.requestsUsed;
+    }
+  });
+
+  const daily: AutoModelUsagePoint[] = Object.entries(byDate)
+    .map(([date, { auto, specific }]) => {
+      const total = auto + specific;
+      return {
+        date,
+        autoRequests: auto,
+        specificRequests: specific,
+        autoPct: total > 0 ? (auto / total) * 100 : 0,
+        specificPct: total > 0 ? (specific / total) * 100 : 0,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const grandTotal = totalAuto + totalSpecific;
+  return {
+    daily,
+    totalAuto,
+    totalSpecific,
+    autoPct: grandTotal > 0 ? (totalAuto / grandTotal) * 100 : 0,
+    hasAutoData: totalAuto > 0,
+  };
+}
+
+// ─── User weekly model counts (for segment table / CSV export) ───────────────
+
+export interface UserWeeklyModelCounts {
+  /** Sorted week keys, e.g. "2026-W23". */
+  weeks: string[];
+  /** Short display labels per week key (week start date, e.g. "Jun 8"). */
+  weekLabels: Record<string, string>;
+  /** user -> weekKey -> number of distinct models used that week. */
+  counts: Map<string, Map<string, number>>;
+}
+
+/**
+ * For each user, counts the number of distinct models used per ISO week.
+ */
+export function getUserWeeklyModelCounts(data: CopilotUsageData[]): UserWeeklyModelCounts {
+  const perUserWeek = new Map<string, Map<string, Set<string>>>();
+  const weekSet = new Set<string>();
+
+  data.forEach(item => {
+    const isoWeek = getISOWeek(item.timestamp);
+    const key = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+    weekSet.add(key);
+
+    if (!perUserWeek.has(item.user)) perUserWeek.set(item.user, new Map());
+    const userWeeks = perUserWeek.get(item.user)!;
+    if (!userWeeks.has(key)) userWeeks.set(key, new Set());
+    userWeeks.get(key)!.add(item.model);
+  });
+
+  const weeks = Array.from(weekSet).sort();
+  const weekLabels: Record<string, string> = {};
+  weeks.forEach(key => {
+    const [yearStr, weekStr] = key.split('-W');
+    const { startDate } = getISOWeekDates(Number(yearStr), Number(weekStr));
+    weekLabels[key] = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  });
+
+  const counts = new Map<string, Map<string, number>>();
+  for (const [user, userWeeks] of perUserWeek) {
+    const m = new Map<string, number>();
+    for (const [week, models] of userWeeks) m.set(week, models.size);
+    counts.set(user, m);
+  }
+
+  return { weeks, weekLabels, counts };
+}
+
+// ─── User / cohort trends over time ──────────────────────────────────────────
+
+export interface UserTrendPoint {
+  weekKey: string;        // e.g. "2026-W23"
+  label: string;          // week start date, e.g. "Jun 8"
+  requestsPerUser: number;
+  uniqueModelsPerUser: number;
+  activeUsers: number;
+}
+
+/**
+ * Weekly trend of usage and model diversity for a set of users (a single user
+ * or a cohort). Requests and unique model counts are averaged across users
+ * that were active in each week.
+ */
+export function getUserTrendData(data: CopilotUsageData[], users: string[]): UserTrendPoint[] {
+  if (!data.length || !users.length) return [];
+  const userSet = new Set(users);
+
+  const perWeek = new Map<string, {
+    perUser: Map<string, { requests: number; models: Set<string> }>;
+  }>();
+
+  data.forEach(item => {
+    if (!userSet.has(item.user)) return;
+    const isoWeek = getISOWeek(item.timestamp);
+    const key = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+
+    if (!perWeek.has(key)) perWeek.set(key, { perUser: new Map() });
+    const week = perWeek.get(key)!;
+    if (!week.perUser.has(item.user)) week.perUser.set(item.user, { requests: 0, models: new Set() });
+    const u = week.perUser.get(item.user)!;
+    u.requests += item.requestsUsed;
+    u.models.add(item.model);
+  });
+
+  return Array.from(perWeek.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([weekKey, week]) => {
+      const [yearStr, weekStr] = weekKey.split('-W');
+      const { startDate } = getISOWeekDates(Number(yearStr), Number(weekStr));
+      const active = Array.from(week.perUser.values());
+      const activeUsers = active.length;
+      const totalRequests = active.reduce((sum, u) => sum + u.requests, 0);
+      const totalModels = active.reduce((sum, u) => sum + u.models.size, 0);
+      return {
+        weekKey,
+        label: startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+        requestsPerUser: activeUsers > 0 ? totalRequests / activeUsers : 0,
+        uniqueModelsPerUser: activeUsers > 0 ? totalModels / activeUsers : 0,
+        activeUsers,
+      };
+    });
+}
+
+/** Distinct YYYY-MM months present in the data (UTC). */
+export function getDistinctMonths(data: CopilotUsageData[]): string[] {
+  const months = new Set<string>();
+  data.forEach(item => months.add(item.timestamp.toISOString().slice(0, 7)));
+  return Array.from(months).sort();
+}
+

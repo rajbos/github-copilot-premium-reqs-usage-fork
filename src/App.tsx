@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeploymentFooter } from "@/components/DeploymentFooter";
 import { 
   AggregatedData, 
@@ -53,11 +54,15 @@ import {
   getUserBehaviorData,
   EXCESS_REQUEST_COST,
   getExpectedExcessCost,
-  getPremiumCostDataStatus
+  getPremiumCostDataStatus,
+  getDistinctMonths
 } from "@/lib/utils";
 import { MonthSelector } from "@/components/MonthSelector";
 import { UserSearch } from "@/components/UserSearch";
 import { PremiumCostChart } from "@/components/PremiumCostChart";
+import { AutoModelChart } from "@/components/AutoModelChart";
+import { BehaviorSegmentsTable } from "@/components/BehaviorSegmentsTable";
+import { UserTrendsChart } from "@/components/UserTrendsChart";
 
 const MODEL_COLORS = [
   "#8B5CF6", // Purple
@@ -2272,6 +2277,23 @@ function App() {
               <PremiumCostChart data={displayData} />
             )}
 
+            {/* Auto vs specific model usage */}
+            <div className="flex justify-between items-center mb-2 mt-8">
+              <h2 className="text-2xl font-semibold">
+                Auto vs Specific Model Usage
+                {selectedSearchUser && (
+                  <span className="ml-2 text-lg font-medium text-blue-600">
+                    - {displayUser(selectedSearchUser)}
+                  </span>
+                )}
+              </h2>
+              <div className="text-sm text-muted-foreground">
+                Share of {unitLabel.toLowerCase()} routed via "Auto: " models vs explicitly selected models
+              </div>
+            </div>
+            <Separator className="mb-6" />
+            <AutoModelChart data={displayData} unitLabel={unitLabel} />
+
             {/* Bar Chart - Requests per Model per Day (All Models) */}
             <div className="flex justify-between items-center mb-2 mt-8">
               <h2 className="text-2xl font-semibold">
@@ -2476,7 +2498,45 @@ function App() {
               ))}
             </div>
             <Separator className="mb-6" />
-            <BehaviorScatterChart behaviorData={behaviorData} displayUser={displayUser} unitLabel={unitLabel} />
+            <Tabs defaultValue="chart">
+              <TabsList className="mb-4">
+                <TabsTrigger value="chart">Chart</TabsTrigger>
+                <TabsTrigger value="table">Table &amp; Export</TabsTrigger>
+              </TabsList>
+              <TabsContent value="chart">
+                <BehaviorScatterChart behaviorData={behaviorData} displayUser={displayUser} unitLabel={unitLabel} />
+              </TabsContent>
+              <TabsContent value="table">
+                <BehaviorSegmentsTable data={displayData} behaviorData={behaviorData} displayUser={displayUser} />
+              </TabsContent>
+            </Tabs>
+
+            {/* User / cohort trends over time (only meaningful with multiple months loaded) */}
+            {rawData && getDistinctMonths(rawData).length > 1 && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Usage Trends Over Time
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Weekly {unitLabel.toLowerCase()} and model diversity across all loaded months
+                  </div>
+                </div>
+                <Separator className="mb-6" />
+                <UserTrendsChart
+                  rawData={rawData}
+                  behaviorData={behaviorData}
+                  selectedUser={selectedSearchUser}
+                  displayUser={displayUser}
+                  unitLabel={unitLabel}
+                />
+              </>
+            )}
           </div>
         </div>
       )}
