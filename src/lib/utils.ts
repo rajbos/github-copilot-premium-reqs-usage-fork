@@ -39,6 +39,11 @@ export interface CopilotUsageData {
   organization?: string;
   repository?: string;
   costCenterName?: string;
+  // Token usage fields (optional)
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface AggregatedData {
@@ -87,6 +92,15 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     'organization': 'organization',
     'repository': 'repository',
     'cost_center_name': 'costCenterName',
+    // Token usage fields (optional)
+    'input': 'inputTokens',
+    'output': 'outputTokens',
+    'cache_read': 'cacheReadTokens',
+    'cache_write': 'cacheWriteTokens',
+    'input_tokens': 'inputTokens',
+    'output_tokens': 'outputTokens',
+    'cache_read_tokens': 'cacheReadTokens',
+    'cache_write_tokens': 'cacheWriteTokens',
     // Backward compatibility (old headers)
     'timestamp': 'timestamp',
     'user': 'user',
@@ -214,6 +228,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     const organization = getOptionalString('organization');
     const repository = getOptionalString('repository');
     const costCenterName = getOptionalString('costCenterName');
+    const inputTokens = parseOptionalNumber(getOptionalValue('inputTokens'));
+    const outputTokens = parseOptionalNumber(getOptionalValue('outputTokens'));
+    const cacheReadTokens = parseOptionalNumber(getOptionalValue('cacheReadTokens'));
+    const cacheWriteTokens = parseOptionalNumber(getOptionalValue('cacheWriteTokens'));
 
     return {
       timestamp,
@@ -222,6 +240,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
       requestsUsed,
       exceedsQuota,
       totalMonthlyQuota,
+      ...(inputTokens !== undefined ? { inputTokens } : {}),
+      ...(outputTokens !== undefined ? { outputTokens } : {}),
+      ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+      ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
       ...(aicQuantity !== undefined ? { aicQuantity } : {}),
       ...(aicGrossAmount !== undefined ? { aicGrossAmount } : {}),
       ...(appliedCostPerQuantity !== undefined ? { appliedCostPerQuantity } : {}),
@@ -1451,100 +1473,6 @@ export function getUserAnalysisData(data: CopilotUsageData[], username: string):
   };
 }
 
-// ─── AIC (AI Credits) cost data ───────────────────────────────────────────────
-
-export type AICGroupBy = 'day' | 'week' | 'month';
-
-export interface AICDataPoint {
-  label: string;   // display label for the X-axis
-  period: string;  // sort key (YYYY-MM-DD for day, week-start date for week, YYYY-MM for month)
-  aicQuantity: number;
-  aicGrossAmount: number;
-}
-
-export interface AICDataStatus {
-  /** Whether ANY record has the aic_quantity field present (even if zero). */
-  hasQuantityField: boolean;
-  /** Whether ANY record has the aic_gross_amount field present (even if zero). */
-  hasAmountField: boolean;
-  /** Whether there is at least one non-zero aic_quantity value. */
-  hasQuantityData: boolean;
-  /** Whether there is at least one non-zero aic_gross_amount value. */
-  hasAmountData: boolean;
-}
-
-/**
- * Returns information about whether AIC fields are present and have meaningful data.
- */
-export function getAICDataStatus(data: CopilotUsageData[]): AICDataStatus {
-  let hasQuantityField = false;
-  let hasAmountField = false;
-  let hasQuantityData = false;
-  let hasAmountData = false;
-
-  for (const item of data) {
-    if (item.aicQuantity !== undefined) {
-      hasQuantityField = true;
-      if (item.aicQuantity > 0) hasQuantityData = true;
-    }
-    if (item.aicGrossAmount !== undefined) {
-      hasAmountField = true;
-      if (item.aicGrossAmount > 0) hasAmountData = true;
-    }
-    if (hasQuantityData && hasAmountData) break;
-  }
-
-  return { hasQuantityField, hasAmountField, hasQuantityData, hasAmountData };
-}
-
-/**
- * Aggregates AIC quantity and gross amount by day, ISO week, or calendar month.
- * UTC-based to be consistent with all other date handling in the app.
- */
-export function getAICData(data: CopilotUsageData[], groupBy: AICGroupBy = 'day'): AICDataPoint[] {
-  if (!data.length) return [];
-
-  const grouped: Record<string, AICDataPoint> = {};
-
-  data.forEach(item => {
-    const dateStr = item.timestamp.toISOString().split('T')[0]; // YYYY-MM-DD (UTC)
-    let period: string;
-    let label: string;
-
-    if (groupBy === 'day') {
-      period = dateStr;
-      label = dateStr;
-    } else if (groupBy === 'week') {
-      // Compute the Monday of the ISO week in UTC (matches WeeklyTopModelsChart)
-      const d = new Date(dateStr + 'T00:00:00Z');
-      const day = d.getUTCDay(); // 0 = Sunday
-      const diffToMon = day === 0 ? -6 : 1 - day;
-      const mon = new Date(d);
-      mon.setUTCDate(d.getUTCDate() + diffToMon);
-      period = mon.toISOString().split('T')[0];
-      label = mon.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    } else {
-      // Month: YYYY-MM
-      period = dateStr.slice(0, 7);
-      const d = new Date(dateStr + 'T00:00:00Z');
-      label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', timeZone: 'UTC' });
-    }
-
-    if (!grouped[period]) {
-      grouped[period] = { label, period, aicQuantity: 0, aicGrossAmount: 0 };
-    }
-
-    if (item.aicQuantity !== undefined) {
-      grouped[period].aicQuantity += item.aicQuantity;
-    }
-    if (item.aicGrossAmount !== undefined) {
-      grouped[period].aicGrossAmount += item.aicGrossAmount;
-    }
-  });
-
-  return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
-}
-
 // ─── Premium Cost Data (new format: net/gross/discount amounts) ──────────────
 
 export type PremiumCostGroupBy = 'day' | 'week' | 'month';
@@ -1628,5 +1556,346 @@ export function getPremiumCostData(data: CopilotUsageData[], groupBy: PremiumCos
   });
 
   return Object.values(grouped).sort((a, b) => a.period.localeCompare(b.period));
+}
+
+// ─── Auto model usage ("Auto: <model>" vs explicitly selected models) ────────
+
+export interface AutoModelUsagePoint {
+  date: string;           // YYYY-MM-DD (UTC)
+  autoRequests: number;
+  specificRequests: number;
+  autoPct: number;        // 0-100
+  specificPct: number;    // 0-100
+}
+
+export interface AutoModelUsageSummary {
+  daily: AutoModelUsagePoint[];
+  totalAuto: number;
+  totalSpecific: number;
+  autoPct: number;        // overall 0-100
+  hasAutoData: boolean;   // whether any "Auto: " model usage exists
+}
+
+export function isAutoModel(model: string): boolean {
+  return /^auto:\s*/i.test(model);
+}
+
+/**
+ * Aggregates requests per day split by models selected via the "Auto: " router
+ * versus explicitly chosen models, with percentages.
+ */
+export function getAutoModelUsageData(data: CopilotUsageData[]): AutoModelUsageSummary {
+  const empty: AutoModelUsageSummary = { daily: [], totalAuto: 0, totalSpecific: 0, autoPct: 0, hasAutoData: false };
+  if (!data.length) return empty;
+
+  const byDate: Record<string, { auto: number; specific: number }> = {};
+  let totalAuto = 0;
+  let totalSpecific = 0;
+
+  data.forEach(item => {
+    const dateStr = item.timestamp.toISOString().split('T')[0];
+    if (!byDate[dateStr]) byDate[dateStr] = { auto: 0, specific: 0 };
+    if (isAutoModel(item.model)) {
+      byDate[dateStr].auto += item.requestsUsed;
+      totalAuto += item.requestsUsed;
+    } else {
+      byDate[dateStr].specific += item.requestsUsed;
+      totalSpecific += item.requestsUsed;
+    }
+  });
+
+  const daily: AutoModelUsagePoint[] = Object.entries(byDate)
+    .map(([date, { auto, specific }]) => {
+      const total = auto + specific;
+      return {
+        date,
+        autoRequests: auto,
+        specificRequests: specific,
+        autoPct: total > 0 ? (auto / total) * 100 : 0,
+        specificPct: total > 0 ? (specific / total) * 100 : 0,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const grandTotal = totalAuto + totalSpecific;
+  return {
+    daily,
+    totalAuto,
+    totalSpecific,
+    autoPct: grandTotal > 0 ? (totalAuto / grandTotal) * 100 : 0,
+    hasAutoData: totalAuto > 0,
+  };
+}
+
+// ─── User weekly model counts (for segment table / CSV export) ───────────────
+
+export interface UserWeeklyModelCounts {
+  /** Sorted week keys, e.g. "2026-W23". */
+  weeks: string[];
+  /** Short display labels per week key (week start date, e.g. "Jun 8"). */
+  weekLabels: Record<string, string>;
+  /** user -> weekKey -> number of distinct models used that week. */
+  counts: Map<string, Map<string, number>>;
+}
+
+/**
+ * For each user, counts the number of distinct models used per ISO week.
+ */
+export function getUserWeeklyModelCounts(data: CopilotUsageData[]): UserWeeklyModelCounts {
+  const perUserWeek = new Map<string, Map<string, Set<string>>>();
+  const weekSet = new Set<string>();
+
+  data.forEach(item => {
+    const isoWeek = getISOWeek(item.timestamp);
+    const key = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+    weekSet.add(key);
+
+    if (!perUserWeek.has(item.user)) perUserWeek.set(item.user, new Map());
+    const userWeeks = perUserWeek.get(item.user)!;
+    if (!userWeeks.has(key)) userWeeks.set(key, new Set());
+    userWeeks.get(key)!.add(item.model);
+  });
+
+  const weeks = Array.from(weekSet).sort();
+  const weekLabels: Record<string, string> = {};
+  weeks.forEach(key => {
+    const [yearStr, weekStr] = key.split('-W');
+    const { startDate } = getISOWeekDates(Number(yearStr), Number(weekStr));
+    weekLabels[key] = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  });
+
+  const counts = new Map<string, Map<string, number>>();
+  for (const [user, userWeeks] of perUserWeek) {
+    const m = new Map<string, number>();
+    for (const [week, models] of userWeeks) m.set(week, models.size);
+    counts.set(user, m);
+  }
+
+  return { weeks, weekLabels, counts };
+}
+
+// ─── User / cohort trends over time ──────────────────────────────────────────
+
+export interface UserTrendPoint {
+  weekKey: string;        // e.g. "2026-W23"
+  label: string;          // week start date, e.g. "Jun 8"
+  requestsPerUser: number;
+  uniqueModelsPerUser: number;
+  activeUsers: number;
+}
+
+/**
+ * Weekly trend of usage and model diversity for a set of users (a single user
+ * or a cohort). Requests and unique model counts are averaged across users
+ * that were active in each week.
+ */
+export function getUserTrendData(data: CopilotUsageData[], users: string[]): UserTrendPoint[] {
+  if (!data.length || !users.length) return [];
+  const userSet = new Set(users);
+
+  const perWeek = new Map<string, {
+    perUser: Map<string, { requests: number; models: Set<string> }>;
+  }>();
+
+  data.forEach(item => {
+    if (!userSet.has(item.user)) return;
+    const isoWeek = getISOWeek(item.timestamp);
+    const key = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+
+    if (!perWeek.has(key)) perWeek.set(key, { perUser: new Map() });
+    const week = perWeek.get(key)!;
+    if (!week.perUser.has(item.user)) week.perUser.set(item.user, { requests: 0, models: new Set() });
+    const u = week.perUser.get(item.user)!;
+    u.requests += item.requestsUsed;
+    u.models.add(item.model);
+  });
+
+  return Array.from(perWeek.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([weekKey, week]) => {
+      const [yearStr, weekStr] = weekKey.split('-W');
+      const { startDate } = getISOWeekDates(Number(yearStr), Number(weekStr));
+      const active = Array.from(week.perUser.values());
+      const activeUsers = active.length;
+      const totalRequests = active.reduce((sum, u) => sum + u.requests, 0);
+      const totalModels = active.reduce((sum, u) => sum + u.models.size, 0);
+      return {
+        weekKey,
+        label: startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+        requestsPerUser: activeUsers > 0 ? totalRequests / activeUsers : 0,
+        uniqueModelsPerUser: activeUsers > 0 ? totalModels / activeUsers : 0,
+        activeUsers,
+      };
+    });
+}
+
+/** Distinct YYYY-MM months present in the data (UTC). */
+export function getDistinctMonths(data: CopilotUsageData[]): string[] {
+  const months = new Set<string>();
+  data.forEach(item => months.add(item.timestamp.toISOString().slice(0, 7)));
+  return Array.from(months).sort();
+}
+
+// ─── Token usage (input / output / cache_read / cache_write) ─────────────────
+
+export interface TokenUsageDataPoint {
+  date: string;          // YYYY-MM-DD (UTC)
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  cacheHitRate: number;  // cacheRead / (input + cacheRead), 0-100
+}
+
+export interface TokenUsageSummary {
+  daily: TokenUsageDataPoint[];
+  totalInput: number;
+  totalOutput: number;
+  totalCacheRead: number;
+  totalCacheWrite: number;
+  overallCacheHitRate: number; // 0-100
+  hasTokenData: boolean;
+}
+
+/**
+ * Aggregates token usage per day and computes the cache hit rate
+ * (share of read tokens served from cache).
+ */
+export function getTokenUsageData(data: CopilotUsageData[]): TokenUsageSummary {
+  const empty: TokenUsageSummary = {
+    daily: [], totalInput: 0, totalOutput: 0, totalCacheRead: 0, totalCacheWrite: 0,
+    overallCacheHitRate: 0, hasTokenData: false,
+  };
+  if (!data.length) return empty;
+
+  const byDate: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {};
+  let hasTokenData = false;
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+    hasTokenData = true;
+
+    const dateStr = item.timestamp.toISOString().split('T')[0];
+    if (!byDate[dateStr]) byDate[dateStr] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    byDate[dateStr].input += item.inputTokens ?? 0;
+    byDate[dateStr].output += item.outputTokens ?? 0;
+    byDate[dateStr].cacheRead += item.cacheReadTokens ?? 0;
+    byDate[dateStr].cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  if (!hasTokenData) return empty;
+
+  const daily: TokenUsageDataPoint[] = Object.entries(byDate)
+    .map(([date, t]) => ({
+      date,
+      input: t.input,
+      output: t.output,
+      cacheRead: t.cacheRead,
+      cacheWrite: t.cacheWrite,
+      cacheHitRate: t.input + t.cacheRead > 0 ? (t.cacheRead / (t.input + t.cacheRead)) * 100 : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalInput = daily.reduce((s, d) => s + d.input, 0);
+  const totalOutput = daily.reduce((s, d) => s + d.output, 0);
+  const totalCacheRead = daily.reduce((s, d) => s + d.cacheRead, 0);
+  const totalCacheWrite = daily.reduce((s, d) => s + d.cacheWrite, 0);
+
+  return {
+    daily,
+    totalInput,
+    totalOutput,
+    totalCacheRead,
+    totalCacheWrite,
+    overallCacheHitRate: totalInput + totalCacheRead > 0
+      ? (totalCacheRead / (totalInput + totalCacheRead)) * 100
+      : 0,
+    hasTokenData: true,
+  };
+}
+
+export interface ModelTokenStats {
+  model: string;
+  requests: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  outputInputRatio: number;   // output / input (0 when no input)
+  tokensPerRequest: number;   // total tokens / requests
+}
+
+/** Per-model token totals and efficiency metrics, sorted by total tokens desc. */
+export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] {
+  const byModel = new Map<string, ModelTokenStats>();
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+
+    if (!byModel.has(item.model)) {
+      byModel.set(item.model, {
+        model: item.model, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
+        outputInputRatio: 0, tokensPerRequest: 0,
+      });
+    }
+    const s = byModel.get(item.model)!;
+    s.requests += item.requestsUsed;
+    s.input += item.inputTokens ?? 0;
+    s.output += item.outputTokens ?? 0;
+    s.cacheRead += item.cacheReadTokens ?? 0;
+    s.cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  return Array.from(byModel.values())
+    .map(s => ({
+      ...s,
+      outputInputRatio: s.input > 0 ? s.output / s.input : 0,
+      tokensPerRequest: s.requests > 0 ? (s.input + s.output + s.cacheRead + s.cacheWrite) / s.requests : 0,
+    }))
+    .sort((a, b) =>
+      (b.input + b.output + b.cacheRead + b.cacheWrite) - (a.input + a.output + a.cacheRead + a.cacheWrite)
+    );
+}
+
+export interface UserTokenTotals {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
+/** Token totals per user. */
+export function getUserTokenTotals(data: CopilotUsageData[]): Map<string, UserTokenTotals> {
+  const totals = new Map<string, UserTokenTotals>();
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+
+    if (!totals.has(item.user)) totals.set(item.user, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    const t = totals.get(item.user)!;
+    t.input += item.inputTokens ?? 0;
+    t.output += item.outputTokens ?? 0;
+    t.cacheRead += item.cacheReadTokens ?? 0;
+    t.cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  return totals;
+}
+
+/** Compact formatting for large token counts, e.g. 1.2M, 340K. */
+export function formatTokens(value: number): string {
+  if (Math.abs(value) >= 1_000_000_000) return `${(value / 1_000_000_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}B`;
+  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}M`;
+  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}K`;
+  return value.toLocaleString('en-US');
 }
 

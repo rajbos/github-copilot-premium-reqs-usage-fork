@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeploymentFooter } from "@/components/DeploymentFooter";
 import { 
   AggregatedData, 
@@ -53,13 +54,19 @@ import {
   getUserBehaviorData,
   EXCESS_REQUEST_COST,
   getExpectedExcessCost,
-  getPremiumCostDataStatus
+  getPremiumCostDataStatus,
+  getDistinctMonths,
+  getAutoModelUsageData,
+  getTokenUsageData
 } from "@/lib/utils";
 import { getExportFilesForUploadedCsv } from "@/lib/csv-export";
 import { MonthSelector } from "@/components/MonthSelector";
 import { UserSearch } from "@/components/UserSearch";
-import { AICCostChart } from "@/components/AICCostChart";
 import { PremiumCostChart } from "@/components/PremiumCostChart";
+import { AutoModelChart } from "@/components/AutoModelChart";
+import { TokenUsageChart } from "@/components/TokenUsageChart";
+import { BehaviorSegmentsTable } from "@/components/BehaviorSegmentsTable";
+import { UserTrendsChart } from "@/components/UserTrendsChart";
 
 const MODEL_COLORS = [
   "#8B5CF6", // Purple
@@ -590,6 +597,16 @@ function App() {
   }, [displayData]);
 
   const unitLabel = isNewFormat ? 'AI Credits' : 'Requests';
+
+  const hasAutoModelData = useMemo(() => {
+    if (!displayData || !displayData.length) return false;
+    return getAutoModelUsageData(displayData).hasAutoData;
+  }, [displayData]);
+
+  const hasTokenData = useMemo(() => {
+    if (!displayData || !displayData.length) return false;
+    return getTokenUsageData(displayData).hasTokenData;
+  }, [displayData]);
 
   /**
    * Process data for a specific month and update all derived state
@@ -2319,24 +2336,47 @@ function App() {
               <PremiumCostChart data={displayData} />
             )}
 
-            {/* Bar Chart - Requests per Model per Day (All Models) */}
-            <div className="flex justify-between items-center mb-2 mt-8">
-              <h2 className="text-2xl font-semibold">
-                Estimated Cost &amp; AI Credits Usage
-                {selectedSearchUser && (
-                  <span className="ml-2 text-lg font-medium text-blue-600">
-                    - {displayUser(selectedSearchUser)}
-                  </span>
-                )}
-              </h2>
-              {lastDateAvailable && (
-                <div className="text-sm text-muted-foreground">
-                  Data available through: <span className="font-medium">{lastDateAvailable}</span>
+            {/* Auto vs specific model usage */}
+            {hasAutoModelData && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Auto vs Specific Model Usage
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Share of {unitLabel.toLowerCase()} routed via "Auto: " models vs explicitly selected models
+                  </div>
                 </div>
-              )}
-            </div>
-            <Separator className="mb-6" />
-            <AICCostChart data={displayData} />
+                <Separator className="mb-6" />
+                <AutoModelChart data={displayData} unitLabel={unitLabel} />
+              </>
+            )}
+
+            {/* Token usage (input/output/cache) */}
+            {hasTokenData && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Token Usage
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Input, output and cache tokens per day, with cache hit rate and per-model stats
+                  </div>
+                </div>
+                <Separator className="mb-6" />
+                <TokenUsageChart data={displayData} />
+              </>
+            )}
 
             {/* Bar Chart - Requests per Model per Day (All Models) */}
             <div className="flex justify-between items-center mb-2 mt-8">
@@ -2542,7 +2582,45 @@ function App() {
               ))}
             </div>
             <Separator className="mb-6" />
-            <BehaviorScatterChart behaviorData={behaviorData} displayUser={displayUser} unitLabel={unitLabel} />
+            <Tabs defaultValue="chart">
+              <TabsList className="mb-4">
+                <TabsTrigger value="chart">Chart</TabsTrigger>
+                <TabsTrigger value="table">Table &amp; Export</TabsTrigger>
+              </TabsList>
+              <TabsContent value="chart">
+                <BehaviorScatterChart behaviorData={behaviorData} displayUser={displayUser} unitLabel={unitLabel} />
+              </TabsContent>
+              <TabsContent value="table">
+                <BehaviorSegmentsTable data={displayData} behaviorData={behaviorData} displayUser={displayUser} />
+              </TabsContent>
+            </Tabs>
+
+            {/* User / cohort trends over time (only meaningful with multiple months loaded) */}
+            {rawData && getDistinctMonths(rawData).length > 1 && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Usage Trends Over Time
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Weekly {unitLabel.toLowerCase()} and model diversity across all loaded months
+                  </div>
+                </div>
+                <Separator className="mb-6" />
+                <UserTrendsChart
+                  rawData={rawData}
+                  behaviorData={behaviorData}
+                  selectedUser={selectedSearchUser}
+                  displayUser={displayUser}
+                  unitLabel={unitLabel}
+                />
+              </>
+            )}
           </div>
         </div>
       )}
