@@ -16,6 +16,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeploymentFooter } from "@/components/DeploymentFooter";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTableHead } from "@/components/SortableTableHead";
 import { 
   AggregatedData, 
   CopilotUsageData, 
@@ -23,12 +25,14 @@ import {
   DailyModelData,
   DailyOveruserData,
   PowerUserSummary,
+  PowerUserData,
   PowerUserDailyBreakdown,
   ExceededRequestDetail,
   ExceededUserSummary,
   ProjectedUserData,
   MonthOption,
   UserAnalysisData,
+  UserWeeklyData,
   UserBehaviorDataPoint,
   aggregateDataByDay, 
   parseCSV,
@@ -995,6 +999,35 @@ function App() {
     });
   }, [modelSummary, modelSortColumn, modelSortDirection]);
 
+  // Sorting for other data tables, reusing the same click-to-sort pattern as the model summary table
+  const {
+    sortColumn: weeklyBreakdownSortColumn,
+    sortDirection: weeklyBreakdownSortDirection,
+    handleSort: handleWeeklyBreakdownSort,
+    sortedItems: sortedWeeklyBreakdown,
+  } = useSortableTable<UserWeeklyData, keyof UserWeeklyData>(userAnalysisData?.weeklyBreakdown ?? [], null, 'desc');
+
+  const {
+    sortColumn: powerUsersSortColumn,
+    sortDirection: powerUsersSortDirection,
+    handleSort: handlePowerUsersSort,
+    sortedItems: sortedPowerUsers,
+  } = useSortableTable<PowerUserData, keyof PowerUserData>(powerUserSummary?.powerUsers ?? [], null, 'desc');
+
+  const {
+    sortColumn: exceededUsersSortColumn,
+    sortDirection: exceededUsersSortDirection,
+    handleSort: handleExceededUsersSort,
+    sortedItems: sortedExceededUsersOverview,
+  } = useSortableTable<ExceededUserSummary, keyof ExceededUserSummary>(exceededUsersOverviewData, null, 'desc');
+
+  const {
+    sortColumn: projectedUsersSortColumn,
+    sortDirection: projectedUsersSortDirection,
+    handleSort: handleProjectedUsersSort,
+    sortedItems: sortedProjectedUsersData,
+  } = useSortableTable<ProjectedUserData, keyof ProjectedUserData>(projectedUsersData, null, 'desc');
+
   const behaviorData = useMemo<BehaviorScatterPoint[]>(() => {
     if (!displayData || !displayData.length) return [];
     return getUserBehaviorData(displayData, selectedPlan).map((item) => {
@@ -1450,16 +1483,16 @@ function App() {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Week</TableHead>
-                              <TableHead>Date Range</TableHead>
-                              <TableHead className="text-right">Compliant Requests</TableHead>
-                              <TableHead className="text-right">Exceeding Requests</TableHead>
-                              <TableHead className="text-right">Total {unitLabel}</TableHead>
+                              <SortableTableHead column="startDate" activeColumn={weeklyBreakdownSortColumn} direction={weeklyBreakdownSortDirection} onSort={handleWeeklyBreakdownSort}>Week</SortableTableHead>
+                              <SortableTableHead column="endDate" activeColumn={weeklyBreakdownSortColumn} direction={weeklyBreakdownSortDirection} onSort={handleWeeklyBreakdownSort}>Date Range</SortableTableHead>
+                              <SortableTableHead column="compliantRequests" activeColumn={weeklyBreakdownSortColumn} direction={weeklyBreakdownSortDirection} onSort={handleWeeklyBreakdownSort} className="text-right" align="right">Compliant Requests</SortableTableHead>
+                              <SortableTableHead column="exceedingRequests" activeColumn={weeklyBreakdownSortColumn} direction={weeklyBreakdownSortDirection} onSort={handleWeeklyBreakdownSort} className="text-right" align="right">Exceeding Requests</SortableTableHead>
+                              <SortableTableHead column="totalRequests" activeColumn={weeklyBreakdownSortColumn} direction={weeklyBreakdownSortDirection} onSort={handleWeeklyBreakdownSort} className="text-right" align="right">Total {unitLabel}</SortableTableHead>
                               <TableHead>Models Used</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {userAnalysisData.weeklyBreakdown.map((week) => (
+                            {sortedWeeklyBreakdown.map((week) => (
                               <TableRow key={`${week.year}-W${week.week}`}>
                                 <TableCell className="font-medium">
                                   {week.year}-W{week.week.toString().padStart(2, '0')}
@@ -1898,14 +1931,14 @@ function App() {
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead className="w-12">#</TableHead>
-                                      <TableHead>User</TableHead>
-                                      <TableHead className="text-right">Total {unitLabel}</TableHead>
-                                      {!isNewFormat && (<TableHead className="text-right">Exceeding Requests</TableHead>)}
+                                      <SortableTableHead column="user" activeColumn={powerUsersSortColumn} direction={powerUsersSortDirection} onSort={handlePowerUsersSort}>User</SortableTableHead>
+                                      <SortableTableHead column="totalRequests" activeColumn={powerUsersSortColumn} direction={powerUsersSortDirection} onSort={handlePowerUsersSort} className="text-right" align="right">Total {unitLabel}</SortableTableHead>
+                                      {!isNewFormat && (<SortableTableHead column="exceedingRequests" activeColumn={powerUsersSortColumn} direction={powerUsersSortDirection} onSort={handlePowerUsersSort} className="text-right" align="right">Exceeding Requests</SortableTableHead>)}
                                       <TableHead className="text-right">Models Used</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {powerUserSummary.powerUsers.map((user, index) => (
+                                    {sortedPowerUsers.map((user, index) => (
                                       <TableRow key={user.user}>
                                         <TableCell className="text-center text-muted-foreground font-medium">
                                           {index + 1}
@@ -2624,16 +2657,16 @@ function App() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="min-w-[160px]">User</TableHead>
-                          <TableHead className="text-right min-w-[110px]">Days Exceeded</TableHead>
-                          <TableHead className="text-right min-w-[160px]">Total Exceeded Requests</TableHead>
-                          <TableHead className="text-right min-w-[160px]">Other Requests (Same Days)</TableHead>
-                          <TableHead className="text-right min-w-[160px]">Total Requests (Same Days)</TableHead>
+                          <SortableTableHead column="user" activeColumn={exceededUsersSortColumn} direction={exceededUsersSortDirection} onSort={handleExceededUsersSort} className="min-w-[160px]">User</SortableTableHead>
+                          <SortableTableHead column="daysExceeded" activeColumn={exceededUsersSortColumn} direction={exceededUsersSortDirection} onSort={handleExceededUsersSort} className="text-right min-w-[110px]" align="right">Days Exceeded</SortableTableHead>
+                          <SortableTableHead column="totalExceededRequests" activeColumn={exceededUsersSortColumn} direction={exceededUsersSortDirection} onSort={handleExceededUsersSort} className="text-right min-w-[160px]" align="right">Total Exceeded Requests</SortableTableHead>
+                          <SortableTableHead column="compliantRequestsOnExceededDays" activeColumn={exceededUsersSortColumn} direction={exceededUsersSortDirection} onSort={handleExceededUsersSort} className="text-right min-w-[160px]" align="right">Other Requests (Same Days)</SortableTableHead>
+                          <SortableTableHead column="totalRequestsOnExceededDays" activeColumn={exceededUsersSortColumn} direction={exceededUsersSortDirection} onSort={handleExceededUsersSort} className="text-right min-w-[160px]" align="right">Total Requests (Same Days)</SortableTableHead>
                           <TableHead className="min-w-[130px]">Worst Day</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {exceededUsersOverviewData.map((row) => (
+                        {sortedExceededUsersOverview.map((row) => (
                           <TableRow key={row.user}>
                             <TableCell className="font-medium">{displayUser(row.user)}</TableCell>
                             <TableCell className="text-right">{row.daysExceeded.toLocaleString()}</TableCell>
@@ -2975,15 +3008,15 @@ function App() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-8">#</TableHead>
-                          <TableHead className="min-w-[120px]">User</TableHead>
-                          <TableHead className="text-right min-w-[80px]">Current</TableHead>
-                          <TableHead className="text-right min-w-[80px]">Daily Avg</TableHead>
-                          <TableHead className="text-right min-w-[80px]">Projected</TableHead>
+                          <SortableTableHead column="user" activeColumn={projectedUsersSortColumn} direction={projectedUsersSortDirection} onSort={handleProjectedUsersSort} className="min-w-[120px]">User</SortableTableHead>
+                          <SortableTableHead column="currentRequests" activeColumn={projectedUsersSortColumn} direction={projectedUsersSortDirection} onSort={handleProjectedUsersSort} className="text-right min-w-[80px]" align="right">Current</SortableTableHead>
+                          <SortableTableHead column="dailyAverage" activeColumn={projectedUsersSortColumn} direction={projectedUsersSortDirection} onSort={handleProjectedUsersSort} className="text-right min-w-[80px]" align="right">Daily Avg</SortableTableHead>
+                          <SortableTableHead column="projectedMonthlyTotal" activeColumn={projectedUsersSortColumn} direction={projectedUsersSortDirection} onSort={handleProjectedUsersSort} className="text-right min-w-[80px]" align="right">Projected</SortableTableHead>
                           <TableHead className="text-right min-w-[80px]">Exceeding</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {projectedUsersData.map((user, index) => {
+                        {sortedProjectedUsersData.map((user, index) => {
                           const planLimit = selectedPlan === COPILOT_PLANS.INDIVIDUAL ? 50 : 
                                           selectedPlan === COPILOT_PLANS.BUSINESS ? 300 : 1000;
                           const exceedingBy = user.projectedMonthlyTotal - planLimit;
