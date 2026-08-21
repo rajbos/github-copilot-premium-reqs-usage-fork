@@ -13,6 +13,8 @@ import {
   CopilotUsageData,
   UserBehaviorDataPoint,
   getUserWeeklyModelCounts,
+  getUserTokenTotals,
+  formatTokens,
 } from "@/lib/utils";
 
 const BEHAVIOR_COLORS: Record<string, string> = {
@@ -43,6 +45,8 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
   const [selectedSegment, setSelectedSegment] = useState<string>('All');
 
   const { weeks, weekLabels, counts } = useMemo(() => getUserWeeklyModelCounts(data), [data]);
+  const tokenTotals = useMemo(() => getUserTokenTotals(data), [data]);
+  const hasTokenData = tokenTotals.size > 0;
 
   const segments = useMemo(() => {
     const order = Object.keys(BEHAVIOR_COLORS);
@@ -61,12 +65,20 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
   }, [behaviorData, counts, selectedSegment]);
 
   const exportCSV = () => {
-    const header = ['Username', 'Category', ...weeks.map(w => `Models ${w} (${weekLabels[w]})`)];
-    const lines = rows.map(row => [
-      csvEscape(displayUser(row.user)),
-      csvEscape(row.segment),
-      ...weeks.map(w => String(row.weeklyCounts.get(w) ?? 0)),
-    ].join(','));
+    const tokenHeaders = hasTokenData ? ['Input Tokens', 'Output Tokens', 'Cache Read Tokens', 'Cache Write Tokens'] : [];
+    const header = ['Username', 'Category', ...tokenHeaders, ...weeks.map(w => `Models ${w} (${weekLabels[w]})`)];
+    const lines = rows.map(row => {
+      const t = tokenTotals.get(row.user);
+      const tokenCells = hasTokenData
+        ? [t?.input ?? 0, t?.output ?? 0, t?.cacheRead ?? 0, t?.cacheWrite ?? 0].map(String)
+        : [];
+      return [
+        csvEscape(displayUser(row.user)),
+        csvEscape(row.segment),
+        ...tokenCells,
+        ...weeks.map(w => String(row.weeklyCounts.get(w) ?? 0)),
+      ].join(',');
+    });
     const csv = [header.map(csvEscape).join(','), ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -112,6 +124,14 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Category</TableHead>
+              {hasTokenData && (
+                <>
+                  <TableHead className="text-right">Input tokens</TableHead>
+                  <TableHead className="text-right">Output tokens</TableHead>
+                  <TableHead className="text-right">Cache read</TableHead>
+                  <TableHead className="text-right">Cache write</TableHead>
+                </>
+              )}
               {weeks.map(w => (
                 <TableHead key={w} className="text-right" title={w}>
                   {weekLabels[w]}
@@ -132,6 +152,17 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
                     {row.segment}
                   </span>
                 </TableCell>
+                {hasTokenData && (() => {
+                  const t = tokenTotals.get(row.user);
+                  return (
+                    <>
+                      <TableCell className="text-right" title={(t?.input ?? 0).toLocaleString()}>{formatTokens(t?.input ?? 0)}</TableCell>
+                      <TableCell className="text-right" title={(t?.output ?? 0).toLocaleString()}>{formatTokens(t?.output ?? 0)}</TableCell>
+                      <TableCell className="text-right" title={(t?.cacheRead ?? 0).toLocaleString()}>{formatTokens(t?.cacheRead ?? 0)}</TableCell>
+                      <TableCell className="text-right" title={(t?.cacheWrite ?? 0).toLocaleString()}>{formatTokens(t?.cacheWrite ?? 0)}</TableCell>
+                    </>
+                  );
+                })()}
                 {weeks.map(w => (
                   <TableCell key={w} className="text-right">
                     {(row.weeklyCounts.get(w) ?? 0).toLocaleString()}
@@ -141,7 +172,7 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
             ))}
             {!rows.length && (
               <TableRow>
-                <TableCell colSpan={2 + weeks.length} className="text-center text-muted-foreground">
+                <TableCell colSpan={2 + (hasTokenData ? 4 : 0) + weeks.length} className="text-center text-muted-foreground">
                   No users in this category.
                 </TableCell>
               </TableRow>

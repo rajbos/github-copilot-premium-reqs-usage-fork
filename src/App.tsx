@@ -55,12 +55,15 @@ import {
   EXCESS_REQUEST_COST,
   getExpectedExcessCost,
   getPremiumCostDataStatus,
-  getDistinctMonths
+  getDistinctMonths,
+  getAutoModelUsageData,
+  getTokenUsageData
 } from "@/lib/utils";
 import { MonthSelector } from "@/components/MonthSelector";
 import { UserSearch } from "@/components/UserSearch";
 import { PremiumCostChart } from "@/components/PremiumCostChart";
 import { AutoModelChart } from "@/components/AutoModelChart";
+import { TokenUsageChart } from "@/components/TokenUsageChart";
 import { BehaviorSegmentsTable } from "@/components/BehaviorSegmentsTable";
 import { UserTrendsChart } from "@/components/UserTrendsChart";
 
@@ -592,6 +595,16 @@ function App() {
   }, [displayData]);
 
   const unitLabel = isNewFormat ? 'AI Credits' : 'Requests';
+
+  const hasAutoModelData = useMemo(() => {
+    if (!displayData || !displayData.length) return false;
+    return getAutoModelUsageData(displayData).hasAutoData;
+  }, [displayData]);
+
+  const hasTokenData = useMemo(() => {
+    if (!displayData || !displayData.length) return false;
+    return getTokenUsageData(displayData).hasTokenData;
+  }, [displayData]);
 
   /**
    * Process data for a specific month and update all derived state
@@ -2278,21 +2291,46 @@ function App() {
             )}
 
             {/* Auto vs specific model usage */}
-            <div className="flex justify-between items-center mb-2 mt-8">
-              <h2 className="text-2xl font-semibold">
-                Auto vs Specific Model Usage
-                {selectedSearchUser && (
-                  <span className="ml-2 text-lg font-medium text-blue-600">
-                    - {displayUser(selectedSearchUser)}
-                  </span>
-                )}
-              </h2>
-              <div className="text-sm text-muted-foreground">
-                Share of {unitLabel.toLowerCase()} routed via "Auto: " models vs explicitly selected models
-              </div>
-            </div>
-            <Separator className="mb-6" />
-            <AutoModelChart data={displayData} unitLabel={unitLabel} />
+            {hasAutoModelData && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Auto vs Specific Model Usage
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Share of {unitLabel.toLowerCase()} routed via "Auto: " models vs explicitly selected models
+                  </div>
+                </div>
+                <Separator className="mb-6" />
+                <AutoModelChart data={displayData} unitLabel={unitLabel} />
+              </>
+            )}
+
+            {/* Token usage (input/output/cache) */}
+            {hasTokenData && (
+              <>
+                <div className="flex justify-between items-center mb-2 mt-8">
+                  <h2 className="text-2xl font-semibold">
+                    Token Usage
+                    {selectedSearchUser && (
+                      <span className="ml-2 text-lg font-medium text-blue-600">
+                        - {displayUser(selectedSearchUser)}
+                      </span>
+                    )}
+                  </h2>
+                  <div className="text-sm text-muted-foreground">
+                    Input, output and cache tokens per day, with cache hit rate and per-model stats
+                  </div>
+                </div>
+                <Separator className="mb-6" />
+                <TokenUsageChart data={displayData} />
+              </>
+            )}
 
             {/* Bar Chart - Requests per Model per Day (All Models) */}
             <div className="flex justify-between items-center mb-2 mt-8">

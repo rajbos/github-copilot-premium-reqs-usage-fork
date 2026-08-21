@@ -39,6 +39,11 @@ export interface CopilotUsageData {
   organization?: string;
   repository?: string;
   costCenterName?: string;
+  // Token usage fields (optional)
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface AggregatedData {
@@ -87,6 +92,15 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     'organization': 'organization',
     'repository': 'repository',
     'cost_center_name': 'costCenterName',
+    // Token usage fields (optional)
+    'input': 'inputTokens',
+    'output': 'outputTokens',
+    'cache_read': 'cacheReadTokens',
+    'cache_write': 'cacheWriteTokens',
+    'input_tokens': 'inputTokens',
+    'output_tokens': 'outputTokens',
+    'cache_read_tokens': 'cacheReadTokens',
+    'cache_write_tokens': 'cacheWriteTokens',
     // Backward compatibility (old headers)
     'timestamp': 'timestamp',
     'user': 'user',
@@ -214,6 +228,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     const organization = getOptionalString('organization');
     const repository = getOptionalString('repository');
     const costCenterName = getOptionalString('costCenterName');
+    const inputTokens = parseOptionalNumber(getOptionalValue('inputTokens'));
+    const outputTokens = parseOptionalNumber(getOptionalValue('outputTokens'));
+    const cacheReadTokens = parseOptionalNumber(getOptionalValue('cacheReadTokens'));
+    const cacheWriteTokens = parseOptionalNumber(getOptionalValue('cacheWriteTokens'));
 
     return {
       timestamp,
@@ -222,6 +240,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
       requestsUsed,
       exceedsQuota,
       totalMonthlyQuota,
+      ...(inputTokens !== undefined ? { inputTokens } : {}),
+      ...(outputTokens !== undefined ? { outputTokens } : {}),
+      ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+      ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
       ...(aicQuantity !== undefined ? { aicQuantity } : {}),
       ...(aicGrossAmount !== undefined ? { aicGrossAmount } : {}),
       ...(appliedCostPerQuantity !== undefined ? { appliedCostPerQuantity } : {}),
@@ -1712,5 +1734,168 @@ export function getDistinctMonths(data: CopilotUsageData[]): string[] {
   const months = new Set<string>();
   data.forEach(item => months.add(item.timestamp.toISOString().slice(0, 7)));
   return Array.from(months).sort();
+}
+
+// ─── Token usage (input / output / cache_read / cache_write) ─────────────────
+
+export interface TokenUsageDataPoint {
+  date: string;          // YYYY-MM-DD (UTC)
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  cacheHitRate: number;  // cacheRead / (input + cacheRead), 0-100
+}
+
+export interface TokenUsageSummary {
+  daily: TokenUsageDataPoint[];
+  totalInput: number;
+  totalOutput: number;
+  totalCacheRead: number;
+  totalCacheWrite: number;
+  overallCacheHitRate: number; // 0-100
+  hasTokenData: boolean;
+}
+
+/**
+ * Aggregates token usage per day and computes the cache hit rate
+ * (share of read tokens served from cache).
+ */
+export function getTokenUsageData(data: CopilotUsageData[]): TokenUsageSummary {
+  const empty: TokenUsageSummary = {
+    daily: [], totalInput: 0, totalOutput: 0, totalCacheRead: 0, totalCacheWrite: 0,
+    overallCacheHitRate: 0, hasTokenData: false,
+  };
+  if (!data.length) return empty;
+
+  const byDate: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {};
+  let hasTokenData = false;
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+    hasTokenData = true;
+
+    const dateStr = item.timestamp.toISOString().split('T')[0];
+    if (!byDate[dateStr]) byDate[dateStr] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    byDate[dateStr].input += item.inputTokens ?? 0;
+    byDate[dateStr].output += item.outputTokens ?? 0;
+    byDate[dateStr].cacheRead += item.cacheReadTokens ?? 0;
+    byDate[dateStr].cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  if (!hasTokenData) return empty;
+
+  const daily: TokenUsageDataPoint[] = Object.entries(byDate)
+    .map(([date, t]) => ({
+      date,
+      input: t.input,
+      output: t.output,
+      cacheRead: t.cacheRead,
+      cacheWrite: t.cacheWrite,
+      cacheHitRate: t.input + t.cacheRead > 0 ? (t.cacheRead / (t.input + t.cacheRead)) * 100 : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalInput = daily.reduce((s, d) => s + d.input, 0);
+  const totalOutput = daily.reduce((s, d) => s + d.output, 0);
+  const totalCacheRead = daily.reduce((s, d) => s + d.cacheRead, 0);
+  const totalCacheWrite = daily.reduce((s, d) => s + d.cacheWrite, 0);
+
+  return {
+    daily,
+    totalInput,
+    totalOutput,
+    totalCacheRead,
+    totalCacheWrite,
+    overallCacheHitRate: totalInput + totalCacheRead > 0
+      ? (totalCacheRead / (totalInput + totalCacheRead)) * 100
+      : 0,
+    hasTokenData: true,
+  };
+}
+
+export interface ModelTokenStats {
+  model: string;
+  requests: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  outputInputRatio: number;   // output / input (0 when no input)
+  tokensPerRequest: number;   // total tokens / requests
+}
+
+/** Per-model token totals and efficiency metrics, sorted by total tokens desc. */
+export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] {
+  const byModel = new Map<string, ModelTokenStats>();
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+
+    if (!byModel.has(item.model)) {
+      byModel.set(item.model, {
+        model: item.model, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
+        outputInputRatio: 0, tokensPerRequest: 0,
+      });
+    }
+    const s = byModel.get(item.model)!;
+    s.requests += item.requestsUsed;
+    s.input += item.inputTokens ?? 0;
+    s.output += item.outputTokens ?? 0;
+    s.cacheRead += item.cacheReadTokens ?? 0;
+    s.cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  return Array.from(byModel.values())
+    .map(s => ({
+      ...s,
+      outputInputRatio: s.input > 0 ? s.output / s.input : 0,
+      tokensPerRequest: s.requests > 0 ? (s.input + s.output + s.cacheRead + s.cacheWrite) / s.requests : 0,
+    }))
+    .sort((a, b) =>
+      (b.input + b.output + b.cacheRead + b.cacheWrite) - (a.input + a.output + a.cacheRead + a.cacheWrite)
+    );
+}
+
+export interface UserTokenTotals {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
+/** Token totals per user. */
+export function getUserTokenTotals(data: CopilotUsageData[]): Map<string, UserTokenTotals> {
+  const totals = new Map<string, UserTokenTotals>();
+
+  data.forEach(item => {
+    const hasAny =
+      item.inputTokens !== undefined || item.outputTokens !== undefined ||
+      item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
+    if (!hasAny) return;
+
+    if (!totals.has(item.user)) totals.set(item.user, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    const t = totals.get(item.user)!;
+    t.input += item.inputTokens ?? 0;
+    t.output += item.outputTokens ?? 0;
+    t.cacheRead += item.cacheReadTokens ?? 0;
+    t.cacheWrite += item.cacheWriteTokens ?? 0;
+  });
+
+  return totals;
+}
+
+/** Compact formatting for large token counts, e.g. 1.2M, 340K. */
+export function formatTokens(value: number): string {
+  if (Math.abs(value) >= 1_000_000_000) return `${(value / 1_000_000_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}B`;
+  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}M`;
+  if (Math.abs(value) >= 1_000) return `${(value / 1_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}K`;
+  return value.toLocaleString('en-US');
 }
 
