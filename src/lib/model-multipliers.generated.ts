@@ -7,7 +7,7 @@
 
 export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-05-29-091242';
 
-export const CURRENT_MODEL_MULTIPLIERS: Record<string, number> = {
+export const CURRENT_MODEL_COSTS: Record<string, number> = {
   'Claude Haiku 4.5': 0.33,
   'Claude Opus 4.5': 3,
   'Claude Opus 4.6': 3,
@@ -31,7 +31,7 @@ export const CURRENT_MODEL_MULTIPLIERS: Record<string, number> = {
   'Raptor mini': 0,
 };
 
-// Models with a 0x multiplier (free) are treated as "Default" and grouped together.
+// Models with a $0 cost (free) are treated as "Default" and grouped together.
 export const CURRENT_DEFAULT_MODELS: string[] = [
   'GPT-4.1',
   'GPT-5 mini',

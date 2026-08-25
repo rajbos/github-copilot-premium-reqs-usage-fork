@@ -58,8 +58,8 @@ def fetch_latest_release() -> dict:
 def parse_models_table(body: str) -> dict[str, float]:
     """Parse the `### Current Models` markdown table from the release body.
 
-    Returns a mapping of model name -> paid multiplier (float).
-    Multiplier 'Not applicable' is mapped to 0.
+    Returns a mapping of model name -> cost per request in USD (float).
+    Cost 'Not applicable' (free/default models) is mapped to 0.
     """
     if not body:
         raise ValueError("Release body is empty; cannot parse models table.")
@@ -89,27 +89,27 @@ def parse_models_table(body: str) -> dict[str, float]:
             continue
 
         name = cells[0]
-        raw_mult = cells[2]
-        if raw_mult.lower() == "not applicable":
-            mult: float = 0.0
+        raw_cost = cells[2]
+        if raw_cost.lower() == "not applicable":
+            cost: float = 0.0
         else:
             try:
-                mult = float(raw_mult.lstrip("$"))
+                cost = float(raw_cost.lstrip("$"))
             except ValueError:
                 sys.stderr.write(
                     f"Warning: skipping {name!r} - "
-                    f"unparseable multiplier {raw_mult!r}\n"
+                    f"unparseable cost {raw_cost!r}\n"
                 )
                 continue
-        models[name] = mult
+        models[name] = cost
 
     if not models:
         raise ValueError("Parsed zero models from release body.")
     return models
 
 
-def format_multiplier(value: float) -> str:
-    """Render a multiplier as JS/TS literal: drop .0 for whole numbers."""
+def format_cost(value: float) -> str:
+    """Render a cost as JS/TS literal: drop .0 for whole numbers."""
     if value == int(value):
         return str(int(value))
     return repr(value)
@@ -135,16 +135,16 @@ def render_generated_file(models: dict[str, float], tag_name: str) -> str:
         "",
         f"export const CURRENT_MODELS_SOURCE_RELEASE = {js_string_literal(tag_name)};",
         "",
-        "export const CURRENT_MODEL_MULTIPLIERS: Record<string, number> = {",
+        "export const CURRENT_MODEL_COSTS: Record<string, number> = {",
     ]
     for name in sorted_names:
         lines.append(
-            f"  {js_string_literal(name)}: {format_multiplier(models[name])},"
+            f"  {js_string_literal(name)}: {format_cost(models[name])},"
         )
     lines.append("};")
     lines.append("")
     lines.append(
-        "// Models with a 0x multiplier (free) are treated as \"Default\" "
+        "// Models with a $0 cost (free) are treated as \"Default\" "
         "and grouped together."
     )
     lines.append("export const CURRENT_DEFAULT_MODELS: string[] = [")
@@ -156,9 +156,9 @@ def render_generated_file(models: dict[str, float], tag_name: str) -> str:
 
 
 def parse_existing_models(content: str) -> dict[str, float]:
-    """Parse the existing CURRENT_MODEL_MULTIPLIERS object for a diff summary."""
+    """Parse the existing CURRENT_MODEL_COSTS object for a diff summary."""
     m = re.search(
-        r"CURRENT_MODEL_MULTIPLIERS[^=]*=\s*\{(.*?)\};",
+        r"CURRENT_MODEL_COSTS[^=]*=\s*\{(.*?)\};",
         content,
         re.DOTALL,
     )
@@ -195,17 +195,17 @@ def print_diff_summary(
     if added:
         print("Added:")
         for n in added:
-            print(f"  + {n} = {format_multiplier(new[n])}")
+            print(f"  + {n} = ${format_cost(new[n])}")
     if removed:
         print("Removed:")
         for n in removed:
-            print(f"  - {n} (was {format_multiplier(old[n])})")
+            print(f"  - {n} (was ${format_cost(old[n])})")
     if changed:
         print("Changed:")
         for n in changed:
             print(
-                f"  ~ {n}: {format_multiplier(old[n])} -> "
-                f"{format_multiplier(new[n])}"
+                f"  ~ {n}: ${format_cost(old[n])} -> "
+                f"${format_cost(new[n])}"
             )
 
 

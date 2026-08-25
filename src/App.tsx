@@ -1190,8 +1190,8 @@ function App() {
         limit = item.businessPlanLimit;
     }
     
-    // For 0x multiplier models, show "Unlimited" despite having constant plan limits
-    return item.multiplier === 0 ? "Unlimited" : limit.toLocaleString();
+    // For $0 cost models, show "Unlimited" despite having constant plan limits
+    return item.costPerRequest === 0 ? "Unlimited" : limit.toLocaleString();
   }, [selectedPlan]);
 
   const handleLegendClick = (barKey: string) => {
@@ -1676,7 +1676,7 @@ function App() {
                     </div>
                     <div
                       className="flex items-center gap-2"
-                      title="Projected total cost if the monthly quota limit did not exist, based on each user's usage rate and model cost multipliers"
+                      title="Projected total cost if the monthly quota limit did not exist, based on each user's usage rate and model per-request costs"
                     >
                       <span className="text-sm text-muted-foreground">Expected Cost (no limit):</span>
                       <span className="text-lg font-bold text-orange-600">
@@ -2132,10 +2132,10 @@ function App() {
                         <TableHead className="text-right">
                           <button
                             className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
-                            onClick={() => handleModelSort('multiplier')}
+                            onClick={() => handleModelSort('costPerRequest')}
                           >
-                            Multiplier
-                            {modelSortColumn === 'multiplier' ? (
+                            Cost/Request
+                            {modelSortColumn === 'costPerRequest' ? (
                               modelSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                             ) : (
                               <ArrowUpDown className="h-3 w-3 opacity-40" />
@@ -2158,7 +2158,7 @@ function App() {
                           <TableCell className="text-right">${item.netAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                           </>)}
                           {!isNewFormat && (
-                          <TableCell className="text-right">{item.multiplier}x</TableCell>
+                          <TableCell className="text-right">${item.costPerRequest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</TableCell>
                           )}
                         </TableRow>
                       ))}

@@ -45,8 +45,8 @@ describe('getExpectedExcessCost projection behavior', () => {
 
     // Projected total: 200 current + (20/day * 20 remaining days) = 600
     // Projected excess over free quota: 600 - 300 = 300
-    // Multiplier 1, cost $0.04/request => 300 * 1 * 0.04 = 12
-    expect(expectedCost).toBeCloseTo(12, 6);
+    // Claude Sonnet 4.6 cost $1/request => 300 * 1 = 300
+    expect(expectedCost).toBeCloseTo(300, 6);
   });
 
   it('does not charge for projected usage when projected total stays within free quota', () => {
@@ -86,7 +86,8 @@ describe('getExpectedExcessCost projection behavior', () => {
     const expectedCost = getExpectedExcessCost(data, COPILOT_PLANS.BUSINESS);
 
     // Existing algorithm: budget exhaustion at day 15, remaining 15 days at 20/day.
-    // Cost = 15 * 20 * 0.04 = 12
-    expect(expectedCost).toBeCloseTo(12, 6);
+    // Projected excess = 15 * 20 = 300 requests
+    // Claude Sonnet 4.6 cost $1/request => 300 * 1 = 300
+    expect(expectedCost).toBeCloseTo(300, 6);
   });
 });

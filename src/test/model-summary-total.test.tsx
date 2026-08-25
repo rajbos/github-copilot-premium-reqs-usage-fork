@@ -11,7 +11,7 @@ describe('Model Summary Total Row', () => {
         totalRequests: 1000, 
         compliantRequests: 800, 
         exceedingRequests: 200,
-        multiplier: 1,
+        costPerRequest: 1,
         excessCost: 50
       },
       { 
@@ -19,7 +19,7 @@ describe('Model Summary Total Row', () => {
         totalRequests: 500, 
         compliantRequests: 400, 
         exceedingRequests: 100,
-        multiplier: 2,
+        costPerRequest: 2,
         excessCost: 40
       }
     ];
@@ -38,7 +38,7 @@ describe('Model Summary Total Row', () => {
             <TableHead className="text-right">Total Requests</TableHead>
             <TableHead className="text-right">Compliant</TableHead>
             <TableHead className="text-right">Exceeding</TableHead>
-            <TableHead className="text-right">Multiplier</TableHead>
+            <TableHead className="text-right">Cost/Request</TableHead>
             <TableHead className="text-right">Excess Cost</TableHead>
           </TableRow>
         </TableHeader>
@@ -49,7 +49,7 @@ describe('Model Summary Total Row', () => {
               <TableCell className="text-right">{item.totalRequests.toLocaleString()}</TableCell>
               <TableCell className="text-right">{item.compliantRequests.toLocaleString()}</TableCell>
               <TableCell className="text-right">{item.exceedingRequests.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{item.multiplier}x</TableCell>
+              <TableCell className="text-right">$${item.costPerRequest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</TableCell>
               <TableCell className="text-right">${item.excessCost.toFixed(2)}</TableCell>
             </TableRow>
           ))}
@@ -100,7 +100,7 @@ describe('Model Summary Total Row', () => {
             <TableHead className="text-right">Total Requests</TableHead>
             <TableHead className="text-right">Compliant</TableHead>
             <TableHead className="text-right">Exceeding</TableHead>
-            <TableHead className="text-right">Multiplier</TableHead>
+            <TableHead className="text-right">Cost/Request</TableHead>
             <TableHead className="text-right">Excess Cost</TableHead>
           </TableRow>
         </TableHeader>
@@ -111,7 +111,7 @@ describe('Model Summary Total Row', () => {
               <TableCell className="text-right">{item.totalRequests.toLocaleString()}</TableCell>
               <TableCell className="text-right">{item.compliantRequests.toLocaleString()}</TableCell>
               <TableCell className="text-right">{item.exceedingRequests.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{item.multiplier}x</TableCell>
+              <TableCell className="text-right">$${item.costPerRequest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</TableCell>
               <TableCell className="text-right">${item.excessCost.toFixed(2)}</TableCell>
             </TableRow>
           ))}
