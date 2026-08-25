@@ -94,7 +94,7 @@ def parse_models_table(body: str) -> dict[str, float]:
             mult: float = 0.0
         else:
             try:
-                mult = float(raw_mult)
+                mult = float(raw_mult.lstrip("$"))
             except ValueError:
                 sys.stderr.write(
                     f"Warning: skipping {name!r} - "
