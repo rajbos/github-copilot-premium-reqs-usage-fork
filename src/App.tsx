@@ -2117,6 +2117,32 @@ function App() {
                         <TableHead className="text-right">
                           <button
                             className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
+                            onClick={() => handleModelSort('includedAic')}
+                          >
+                            Included
+                            {modelSortColumn === 'includedAic' ? (
+                              modelSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button
+                            className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
+                            onClick={() => handleModelSort('overageAic')}
+                          >
+                            Overage
+                            {modelSortColumn === 'overageAic' ? (
+                              modelSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button
+                            className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
                             onClick={() => handleModelSort('netAmount')}
                           >
                             Net Cost
@@ -2155,6 +2181,8 @@ function App() {
                           <TableCell className="text-right">{item.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
                           </>) : (<>
                           <TableCell className="text-right">{item.aicQuantity.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
+                          <TableCell className="text-right">{item.includedAic.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
+                          <TableCell className="text-right">{item.overageAic.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
                           <TableCell className="text-right">${item.netAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                           </>)}
                           {!isNewFormat && (
@@ -2179,6 +2207,12 @@ function App() {
                         </>) : (<>
                         <TableCell className="text-right font-medium">
                           {modelSummary.reduce((sum, item) => sum + item.aicQuantity, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {modelSummary.reduce((sum, item) => sum + item.includedAic, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {modelSummary.reduce((sum, item) => sum + item.overageAic, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           ${modelSummary.reduce((sum, item) => sum + item.netAmount, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
