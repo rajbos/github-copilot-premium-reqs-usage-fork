@@ -60,7 +60,7 @@ export function parseCSV(csv: string): CopilotUsageData[] {
   }
 
   // Parse header row and build a mapping from expected field to column index (case-insensitive)
-  const headerLine = lines[0].replace(/^﻿/, '').trim();
+  const headerLine = lines[0].replace(/^\uFEFF/, '').trim();
   const headerMatches = headerLine.match(/("([^"]*)"|([^,]*))(,|$)/g);
   if (!headerMatches) {
     throw new Error('CSV header could not be parsed');

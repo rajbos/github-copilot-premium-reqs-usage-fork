@@ -118,7 +118,7 @@ describe('Included/overage AIC aggregation', () => {
   })
 
   it('should parse a CSV prefixed with a UTF-8 BOM', () => {
-    const csv = `﻿${BASE_HEADERS}\n${BASE_ROW}`
+    const csv = `\uFEFF${BASE_HEADERS}\n${BASE_ROW}`
     const result = parseCSV(csv)
     expect(result).toHaveLength(1)
     expect(result[0].aicQuantity).toBe(1)
