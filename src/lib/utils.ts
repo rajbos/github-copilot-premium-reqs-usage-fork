@@ -60,7 +60,7 @@ export function parseCSV(csv: string): CopilotUsageData[] {
   }
 
   // Parse header row and build a mapping from expected field to column index (case-insensitive)
-  const headerLine = lines[0].trim();
+  const headerLine = lines[0].replace(/^﻿/, '').trim();
   const headerMatches = headerLine.match(/("([^"]*)"|([^,]*))(,|$)/g);
   if (!headerMatches) {
     throw new Error('CSV header could not be parsed');
@@ -216,8 +216,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     }
 
     const totalMonthlyQuota = getValue('totalMonthlyQuota');
-    // New-format exports have no aic_quantity column; there the quantity field is the AI-credit quantity
-    const aicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity')) ?? requestsUsed;
+    // Real exports zero-fill aic_quantity while the actual AI-credit amount lives in quantity;
+    // treat a missing, unparseable, or zero aic_quantity as "not reported" and use requestsUsed
+    const parsedAicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity'));
+    const aicQuantity = parsedAicQuantity ? parsedAicQuantity : requestsUsed;
     const aicGrossAmount = parseOptionalNumber(getOptionalValue('aicGrossAmount'));
     const appliedCostPerQuantity = parseOptionalNumber(getOptionalValue('appliedCostPerQuantity'));
     const grossAmount = parseOptionalNumber(getOptionalValue('grossAmount'));
