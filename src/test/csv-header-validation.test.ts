@@ -95,7 +95,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-4',
       requestsUsed: 1.5,
       exceedsQuota: false,
-      totalMonthlyQuota: '100'
+      totalMonthlyQuota: '100',
+      aicQuantity: 1.5
     })
   })
 
@@ -111,7 +112,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-4',
       requestsUsed: 1.5,
       exceedsQuota: false,
-      totalMonthlyQuota: '100'
+      totalMonthlyQuota: '100',
+      aicQuantity: 1.5
     })
   })
 
@@ -128,7 +130,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-3.5-turbo',
       requestsUsed: 2.0,
       exceedsQuota: true,
-      totalMonthlyQuota: '50'
+      totalMonthlyQuota: '50',
+      aicQuantity: 2.0
     })
   })
 

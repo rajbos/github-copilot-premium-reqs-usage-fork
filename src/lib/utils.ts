@@ -216,7 +216,8 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     }
 
     const totalMonthlyQuota = getValue('totalMonthlyQuota');
-    const aicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity'));
+    // New-format exports have no aic_quantity column; there the quantity field is the AI-credit quantity
+    const aicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity')) ?? requestsUsed;
     const aicGrossAmount = parseOptionalNumber(getOptionalValue('aicGrossAmount'));
     const appliedCostPerQuantity = parseOptionalNumber(getOptionalValue('appliedCostPerQuantity'));
     const grossAmount = parseOptionalNumber(getOptionalValue('grossAmount'));
@@ -268,6 +269,8 @@ export interface ModelUsageSummary {
   exceedingRequests: number;
   aicQuantity: number;
   netAmount: number;
+  includedAic: number; // AIC covered by the plan allowance (netAmount === 0)
+  overageAic: number; // AIC billed as overage (netAmount > 0)
   multiplier: number;
   individualPlanLimit: number;
   businessPlanLimit: number;
@@ -327,6 +330,8 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
         exceedingRequests: 0,
         aicQuantity: 0,
         netAmount: 0,
+        includedAic: 0,
+        overageAic: 0,
         multiplier,
         individualPlanLimit: PLAN_MONTHLY_LIMITS[COPILOT_PLANS.INDIVIDUAL],
         businessPlanLimit: PLAN_MONTHLY_LIMITS[COPILOT_PLANS.BUSINESS],
@@ -341,6 +346,13 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
     }
     if (item.netAmount !== undefined) {
       summary[item.model].netAmount += item.netAmount;
+    }
+    if (item.aicQuantity !== undefined) {
+      if (item.netAmount !== undefined && item.netAmount > 0) {
+        summary[item.model].overageAic += item.aicQuantity;
+      } else {
+        summary[item.model].includedAic += item.aicQuantity;
+      }
     }
     
     if (item.exceedsQuota) {
@@ -369,6 +381,8 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
       groupedSummary[key].exceedingRequests += item.exceedingRequests;
       groupedSummary[key].aicQuantity += item.aicQuantity;
       groupedSummary[key].netAmount += item.netAmount;
+      groupedSummary[key].includedAic += item.includedAic;
+      groupedSummary[key].overageAic += item.overageAic;
     }
     
     // For grouped default models, ensure multiplier is 0 and limits use constant values
