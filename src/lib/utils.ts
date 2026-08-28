@@ -1840,9 +1840,12 @@ export interface ModelTokenStats {
   cacheWrite: number;
   outputInputRatio: number;   // output / input (0 when no input)
   tokensPerRequest: number;   // total tokens / requests
+  autoTokens: number;         // tokens from "Auto: <model>" rows, merged into this model
+  cost: number;               // estimated cost: requests * model multiplier * EXCESS_REQUEST_COST
 }
 
-/** Per-model token totals and efficiency metrics, sorted by total tokens desc. */
+/** Per-model token totals and efficiency metrics, sorted by total tokens desc.
+ *  "Auto: <model>" rows are merged into the base model; their tokens are tracked in autoTokens. */
 export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] {
   const byModel = new Map<string, ModelTokenStats>();
 
@@ -1852,18 +1855,23 @@ export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] 
       item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
     if (!hasAny) return;
 
-    if (!byModel.has(item.model)) {
-      byModel.set(item.model, {
-        model: item.model, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
-        outputInputRatio: 0, tokensPerRequest: 0,
+    const modelKey = normalizeModelName(item.model);
+    if (!byModel.has(modelKey)) {
+      byModel.set(modelKey, {
+        model: modelKey, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
+        outputInputRatio: 0, tokensPerRequest: 0, autoTokens: 0, cost: 0,
       });
     }
-    const s = byModel.get(item.model)!;
+    const s = byModel.get(modelKey)!;
     s.requests += item.requestsUsed;
     s.input += item.inputTokens ?? 0;
     s.output += item.outputTokens ?? 0;
     s.cacheRead += item.cacheReadTokens ?? 0;
     s.cacheWrite += item.cacheWriteTokens ?? 0;
+    if (isAutoModel(item.model)) {
+      s.autoTokens += (item.inputTokens ?? 0) + (item.outputTokens ?? 0) +
+        (item.cacheReadTokens ?? 0) + (item.cacheWriteTokens ?? 0);
+    }
   });
 
   return Array.from(byModel.values())
@@ -1871,6 +1879,7 @@ export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] 
       ...s,
       outputInputRatio: s.input > 0 ? s.output / s.input : 0,
       tokensPerRequest: s.requests > 0 ? (s.input + s.output + s.cacheRead + s.cacheWrite) / s.requests : 0,
+      cost: s.requests * getModelMultiplier(s.model) * EXCESS_REQUEST_COST,
     }))
     .sort((a, b) =>
       (b.input + b.output + b.cacheRead + b.cacheWrite) - (a.input + a.output + a.cacheRead + a.cacheWrite)
