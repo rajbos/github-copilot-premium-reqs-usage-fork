@@ -14,6 +14,7 @@ import {
   UserBehaviorDataPoint,
   getUserWeeklyModelCounts,
   getUserTokenTotals,
+  getUserActivityStats,
   formatTokens,
 } from "@/lib/utils";
 import { useSortableTable } from "@/hooks/useSortableTable";
@@ -43,10 +44,11 @@ type BehaviorRow = {
   user: string;
   segment: string;
   weeklyCounts: Map<string, number>;
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
+  activeDays: number;
+  firstWeek: string;
+  firstWeekLabel: string;
+  totalTokens: number;
+  utilizationPct: number;
 };
 
 export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
@@ -58,6 +60,7 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
 
   const { weeks, weekLabels, counts } = useMemo(() => getUserWeeklyModelCounts(data), [data]);
   const tokenTotals = useMemo(() => getUserTokenTotals(data), [data]);
+  const activityStats = useMemo(() => getUserActivityStats(data), [data]);
   const hasTokenData = tokenTotals.size > 0;
 
   const segments = useMemo(() => {
@@ -67,36 +70,45 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
   }, [behaviorData]);
 
   const rows = useMemo<BehaviorRow[]>(() => {
+    let grandTotal = 0;
+    for (const t of tokenTotals.values()) {
+      grandTotal += t.input + t.output + t.cacheRead + t.cacheWrite;
+    }
     return behaviorData
       .filter(p => selectedSegment === 'All' || p.behaviorSegment === selectedSegment)
       .map(p => {
         const t = tokenTotals.get(p.user);
+        const totalTokens = t ? t.input + t.output + t.cacheRead + t.cacheWrite : 0;
+        const activity = activityStats.get(p.user);
         return {
           user: p.user,
           segment: p.behaviorSegment,
           weeklyCounts: counts.get(p.user) ?? new Map<string, number>(),
-          input: t?.input ?? 0,
-          output: t?.output ?? 0,
-          cacheRead: t?.cacheRead ?? 0,
-          cacheWrite: t?.cacheWrite ?? 0,
+          activeDays: activity?.activeDays ?? 0,
+          firstWeek: activity?.firstWeek ?? '',
+          firstWeekLabel: activity?.firstWeekLabel ?? '',
+          totalTokens,
+          utilizationPct: grandTotal > 0 ? (totalTokens / grandTotal) * 100 : 0,
         };
       });
-  }, [behaviorData, counts, selectedSegment, tokenTotals]);
+  }, [behaviorData, counts, selectedSegment, tokenTotals, activityStats]);
 
   const { sortColumn, sortDirection, handleSort, sortedItems: sortedRows } =
     useSortableTable<BehaviorRow, keyof BehaviorRow>(rows, null, 'desc');
 
 
   const exportCSV = () => {
-    const tokenHeaders = hasTokenData ? ['Input Tokens', 'Output Tokens', 'Cache Read Tokens', 'Cache Write Tokens'] : [];
-    const header = ['Username', 'Category', ...tokenHeaders, ...weeks.map(w => `Models ${w} (${weekLabels[w]})`)];
+    const tokenHeaders = hasTokenData ? ['Total Tokens', 'Token Utilization %'] : [];
+    const header = ['Username', 'Category', 'Active Days', 'First Week', ...tokenHeaders, ...weeks.map(w => `Models ${w} (${weekLabels[w]})`)];
     const lines = sortedRows.map(row => {
       const tokenCells = hasTokenData
-        ? [row.input, row.output, row.cacheRead, row.cacheWrite].map(String)
+        ? [String(row.totalTokens), row.utilizationPct.toFixed(1)]
         : [];
       return [
         csvEscape(displayUser(row.user)),
         csvEscape(row.segment),
+        String(row.activeDays),
+        csvEscape(row.firstWeekLabel),
         ...tokenCells,
         ...weeks.map(w => String(row.weeklyCounts.get(w) ?? 0)),
       ].join(',');
@@ -141,22 +153,25 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
       </div>
 
       <div className="overflow-x-auto">
+        <p className="text-xs text-muted-foreground mb-2">
+          Weekly columns show the number of distinct models used per ISO week (week start date). Active days = distinct days with usage; First week = first ISO week with usage. Utilization % is each user's share of all tokens (input + output + cache read + cache write).
+        </p>
         <Table>
           <TableHeader>
             <TableRow>
               <SortableTableHead column="user" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort}>User</SortableTableHead>
               <SortableTableHead column="segment" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort}>Category</SortableTableHead>
+              <SortableTableHead column="activeDays" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Active days</SortableTableHead>
+              <SortableTableHead column="firstWeek" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort}>First week</SortableTableHead>
               {hasTokenData && (
                 <>
-                  <SortableTableHead column="input" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Input tokens</SortableTableHead>
-                  <SortableTableHead column="output" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Output tokens</SortableTableHead>
-                  <SortableTableHead column="cacheRead" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Cache read</SortableTableHead>
-                  <SortableTableHead column="cacheWrite" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Cache write</SortableTableHead>
+                  <SortableTableHead column="totalTokens" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Total tokens</SortableTableHead>
+                  <SortableTableHead column="utilizationPct" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">Utilization %</SortableTableHead>
                 </>
               )}
               {weeks.map(w => (
-                <TableHead key={w} className="text-right" title={w}>
-                  {weekLabels[w]}
+                <TableHead key={w} className="text-right" title={`Distinct models used in week ${w}`}>
+                  <span title={`Distinct models used in week ${w}`}>{weekLabels[w]}</span>
                 </TableHead>
               ))}
             </TableRow>
@@ -174,12 +189,12 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
                     {row.segment}
                   </span>
                 </TableCell>
+                <TableCell className="text-right">{row.activeDays.toLocaleString()}</TableCell>
+                <TableCell title={row.firstWeek}>{row.firstWeekLabel}</TableCell>
                 {hasTokenData && (
                   <>
-                    <TableCell className="text-right" title={row.input.toLocaleString()}>{formatTokens(row.input)}</TableCell>
-                    <TableCell className="text-right" title={row.output.toLocaleString()}>{formatTokens(row.output)}</TableCell>
-                    <TableCell className="text-right" title={row.cacheRead.toLocaleString()}>{formatTokens(row.cacheRead)}</TableCell>
-                    <TableCell className="text-right" title={row.cacheWrite.toLocaleString()}>{formatTokens(row.cacheWrite)}</TableCell>
+                    <TableCell className="text-right" title={row.totalTokens.toLocaleString()}>{formatTokens(row.totalTokens)}</TableCell>
+                    <TableCell className="text-right">{row.utilizationPct.toLocaleString('en-US', { maximumFractionDigits: 1 })}%</TableCell>
                   </>
                 )}
                 {weeks.map(w => (
@@ -191,7 +206,7 @@ export const BehaviorSegmentsTable = React.memo(function BehaviorSegmentsTable({
             ))}
             {!rows.length && (
               <TableRow>
-                <TableCell colSpan={2 + (hasTokenData ? 4 : 0) + weeks.length} className="text-center text-muted-foreground">
+                <TableCell colSpan={4 + (hasTokenData ? 2 : 0) + weeks.length} className="text-center text-muted-foreground">
                   No users in this category.
                 </TableCell>
               </TableRow>
