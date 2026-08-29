@@ -79,6 +79,30 @@ describe('getModelTokenStats', () => {
     expect(claude.cacheRead).toBe(0)
     expect(claude.outputInputRatio).toBeCloseTo(0.2)
   })
+
+  it('merges "Auto:" rows into the base model and tracks autoTokens', () => {
+    const csv = `${TOKEN_HEADERS}\n${[
+      row('2026-06-01', 'alice', 'GPT-4.1', '2', '1000', '200', '3000', '100'),
+      row('2026-06-01', 'alice', 'Auto: GPT-4.1', '1', '500', '100', '1500', '50'),
+    ].join('\n')}`
+    const stats = getModelTokenStats(parseCSV(csv))
+    expect(stats).toHaveLength(1)
+    const gpt = stats[0]
+    expect(gpt.model).toBe('GPT-4.1')
+    expect(gpt.requests).toBe(3)
+    expect(gpt.input).toBe(1500)
+    expect(gpt.autoTokens).toBe(500 + 100 + 1500 + 50)
+  })
+
+  it('computes estimated cost from requests and model multiplier', () => {
+    const stats = getModelTokenStats(parseCSV(CSV))
+    const gpt = stats.find(s => s.model === 'GPT-4.1')!
+    // GPT-4.1 is a default (0x) model → no cost
+    expect(gpt.cost).toBe(0)
+    const claude = stats.find(s => s.model === 'Claude Sonnet 4')!
+    // 1 request × 1x multiplier × $0.04
+    expect(claude.cost).toBeCloseTo(0.04)
+  })
 })
 
 describe('getUserTokenTotals', () => {

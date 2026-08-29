@@ -47,7 +47,7 @@ describe('CSV Header Validation', () => {
     expect(result[0].organization).toBe('liantisit-common')
     expect(result[0].repository).toBe('')
     expect(result[0].costCenterName).toBe('')
-    expect(result[0].aicQuantity).toBe(0)
+    expect(result[0].aicQuantity).toBe(19.678995) // aic_quantity is 0 in real exports; falls back to quantity
     expect(result[0].aicGrossAmount).toBe(0)
   })
 
@@ -95,7 +95,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-4',
       requestsUsed: 1.5,
       exceedsQuota: false,
-      totalMonthlyQuota: '100'
+      totalMonthlyQuota: '100',
+      aicQuantity: 1.5
     })
   })
 
@@ -111,7 +112,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-4',
       requestsUsed: 1.5,
       exceedsQuota: false,
-      totalMonthlyQuota: '100'
+      totalMonthlyQuota: '100',
+      aicQuantity: 1.5
     })
   })
 
@@ -128,7 +130,8 @@ describe('CSV Header Validation', () => {
       model: 'gpt-3.5-turbo',
       requestsUsed: 2.0,
       exceedsQuota: true,
-      totalMonthlyQuota: '50'
+      totalMonthlyQuota: '50',
+      aicQuantity: 2.0
     })
   })
 

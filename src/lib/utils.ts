@@ -1,8 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { defaultServerMainFields } from "vite";
-import { CURRENT_MODEL_COSTS, CURRENT_DEFAULT_MODELS } from "./model-multipliers.generated";
-import { LEGACY_MODEL_COSTS, LEGACY_DEFAULT_MODELS } from "./model-multipliers.legacy";
+import { CURRENT_MODEL_MULTIPLIERS, CURRENT_DEFAULT_MODELS } from "./model-multipliers.generated";
+import { LEGACY_MODEL_MULTIPLIERS, LEGACY_DEFAULT_MODELS } from "./model-multipliers.legacy";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -60,7 +60,7 @@ export function parseCSV(csv: string): CopilotUsageData[] {
   }
 
   // Parse header row and build a mapping from expected field to column index (case-insensitive)
-  const headerLine = lines[0].trim();
+  const headerLine = lines[0].replace(/^\uFEFF/, '').trim();
   const headerMatches = headerLine.match(/("([^"]*)"|([^,]*))(,|$)/g);
   if (!headerMatches) {
     throw new Error('CSV header could not be parsed');
@@ -216,7 +216,10 @@ export function parseCSV(csv: string): CopilotUsageData[] {
     }
 
     const totalMonthlyQuota = getValue('totalMonthlyQuota');
-    const aicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity'));
+    // Real exports zero-fill aic_quantity while the actual AI-credit amount lives in quantity;
+    // treat a missing, unparseable, or zero aic_quantity as "not reported" and use requestsUsed
+    const parsedAicQuantity = parseOptionalNumber(getOptionalValue('aicQuantity'));
+    const aicQuantity = parsedAicQuantity ? parsedAicQuantity : requestsUsed;
     const aicGrossAmount = parseOptionalNumber(getOptionalValue('aicGrossAmount'));
     const appliedCostPerQuantity = parseOptionalNumber(getOptionalValue('appliedCostPerQuantity'));
     const grossAmount = parseOptionalNumber(getOptionalValue('grossAmount'));
@@ -268,7 +271,9 @@ export interface ModelUsageSummary {
   exceedingRequests: number;
   aicQuantity: number;
   netAmount: number;
-  costPerRequest: number;
+  includedAic: number; // AIC covered by the plan allowance (netAmount === 0)
+  overageAic: number; // AIC billed as overage (netAmount > 0)
+  multiplier: number;
   individualPlanLimit: number;
   businessPlanLimit: number;
   enterprisePlanLimit: number;
@@ -316,7 +321,7 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
   
   data.forEach(item => {
     if (!summary[item.model]) {
-      const costPerRequest = getModelCost(item.model);
+      const multiplier = getModelMultiplier(item.model);
       const displayName = isDefaultModel(item.model) ? 'Default' : item.model;
 
       summary[item.model] = {
@@ -327,7 +332,9 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
         exceedingRequests: 0,
         aicQuantity: 0,
         netAmount: 0,
-        costPerRequest,
+        includedAic: 0,
+        overageAic: 0,
+        multiplier,
         individualPlanLimit: PLAN_MONTHLY_LIMITS[COPILOT_PLANS.INDIVIDUAL],
         businessPlanLimit: PLAN_MONTHLY_LIMITS[COPILOT_PLANS.BUSINESS],
         enterprisePlanLimit: PLAN_MONTHLY_LIMITS[COPILOT_PLANS.ENTERPRISE],
@@ -341,6 +348,13 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
     }
     if (item.netAmount !== undefined) {
       summary[item.model].netAmount += item.netAmount;
+    }
+    if (item.aicQuantity !== undefined) {
+      if (item.netAmount !== undefined && item.netAmount > 0) {
+        summary[item.model].overageAic += item.aicQuantity;
+      } else {
+        summary[item.model].includedAic += item.aicQuantity;
+      }
     }
     
     if (item.exceedsQuota) {
@@ -369,22 +383,24 @@ export function getModelUsageSummary(data: CopilotUsageData[]): ModelUsageSummar
       groupedSummary[key].exceedingRequests += item.exceedingRequests;
       groupedSummary[key].aicQuantity += item.aicQuantity;
       groupedSummary[key].netAmount += item.netAmount;
+      groupedSummary[key].includedAic += item.includedAic;
+      groupedSummary[key].overageAic += item.overageAic;
     }
     
-    // For grouped default models, ensure costPerRequest is 0 and limits use constant values
+    // For grouped default models, ensure multiplier is 0 and limits use constant values
     if (key === 'Default') {
-      groupedSummary[key].costPerRequest = 0;
+      groupedSummary[key].multiplier = 0;
       groupedSummary[key].individualPlanLimit = PLAN_MONTHLY_LIMITS[COPILOT_PLANS.INDIVIDUAL];
       groupedSummary[key].businessPlanLimit = PLAN_MONTHLY_LIMITS[COPILOT_PLANS.BUSINESS];
       groupedSummary[key].enterprisePlanLimit = PLAN_MONTHLY_LIMITS[COPILOT_PLANS.ENTERPRISE];
     }
     
     // Calculate excess cost
-    // Free models (costPerRequest = 0) have no excess cost
-    if (groupedSummary[key].costPerRequest === 0) {
+    // Free models (multiplier = 0) have no excess cost
+    if (groupedSummary[key].multiplier === 0) {
       groupedSummary[key].excessCost = 0;
     } else {
-      groupedSummary[key].excessCost = groupedSummary[key].exceedingRequests * groupedSummary[key].costPerRequest;
+      groupedSummary[key].excessCost = groupedSummary[key].exceedingRequests * EXCESS_REQUEST_COST;
     }
   });
   
@@ -515,7 +531,7 @@ export const PLAN_MONTHLY_LIMITS = {
   [COPILOT_PLANS.ENTERPRISE]: 1000
 } as const;
 
-// Model costs (per request, in USD) based on GitHub documentation.
+// Model multipliers based on GitHub documentation (for paid plans).
 // Uses display names as they appear in GitHub Copilot exports.
 //
 // The current models are sourced from rajbos/github-copilot-model-notifier and
@@ -525,9 +541,9 @@ export const PLAN_MONTHLY_LIMITS = {
 //
 // Legacy entries are spread first so that, in case of a name collision, the
 // current generated value wins.
-export const MODEL_COSTS: Record<string, number> = {
-  ...LEGACY_MODEL_COSTS,
-  ...CURRENT_MODEL_COSTS,
+export const MODEL_MULTIPLIERS: Record<string, number> = {
+  ...LEGACY_MODEL_MULTIPLIERS,
+  ...CURRENT_MODEL_MULTIPLIERS,
 };
 
 // Default models that should be grouped under "Default" in the UI.
@@ -540,8 +556,8 @@ function normalizeModelName(model: string): string {
   return model.replace(/^Auto:\s*/, '').trim();
 }
 
-function getModelCost(model: string): number {
-  return MODEL_COSTS[normalizeModelName(model)] ?? 0.04;
+function getModelMultiplier(model: string): number {
+  return MODEL_MULTIPLIERS[normalizeModelName(model)] ?? 1;
 }
 
 function isDefaultModel(model: string): boolean {
@@ -1024,7 +1040,7 @@ export function getProjectedUsersExceedingQuotaDetails(data: CopilotUsageData[],
  * 1. Find the day their cumulative requests hit the limit (budget exhaustion day).
  * 2. Compute daily average requests per model, excluding the last usage day (to avoid partial-day skew).
  * 3. Project those requests over the remaining days after the exhaustion day.
- * 4. Apply each model's per-request cost and sum up the projected cost.
+ * 4. Apply each model's cost multiplier and sum the cost at $0.04/PRU.
  */
 export function getExpectedExcessCost(data: CopilotUsageData[], plan: string = COPILOT_PLANS.BUSINESS): number {
   if (!data.length) return 0;
@@ -1095,14 +1111,14 @@ export function getExpectedExcessCost(data: CopilotUsageData[], plan: string = C
       if (projectedExcess <= 0 || projectedMonthlyTotal <= 0) return;
 
       // Allocate only the projected amount above the free plan quota across models,
-      // then apply each model's per-request cost.
+      // then apply each model multiplier to compute cost.
       Object.entries(projectedModelTotals).forEach(([model, projectedTotalForModel]) => {
-        const cost = getModelCost(model);
-        if (cost === 0) return;
+        const multiplier = getModelMultiplier(model);
+        if (multiplier === 0) return;
 
         const modelShare = projectedTotalForModel / projectedMonthlyTotal;
         const projectedExcessForModel = projectedExcess * modelShare;
-        totalExpectedCost += projectedExcessForModel * cost;
+        totalExpectedCost += projectedExcessForModel * multiplier * EXCESS_REQUEST_COST;
       });
     });
 
@@ -1155,11 +1171,11 @@ export function getExpectedExcessCost(data: CopilotUsageData[], plan: string = C
 
     // Project extra requests per model over remaining days
     Object.entries(modelTotals).forEach(([model, total]) => {
-      const cost = getModelCost(model);
-      if (cost === 0) return; // Free models have no cost
+      const multiplier = getModelMultiplier(model);
+      if (multiplier === 0) return; // Free models have no cost
       const dailyAvg = total / numDays;
       const projectedExtra = dailyAvg * remainingDays;
-      totalExpectedCost += projectedExtra * cost;
+      totalExpectedCost += projectedExtra * EXCESS_REQUEST_COST;
     });
   });
 
@@ -1826,9 +1842,12 @@ export interface ModelTokenStats {
   cacheWrite: number;
   outputInputRatio: number;   // output / input (0 when no input)
   tokensPerRequest: number;   // total tokens / requests
+  autoTokens: number;         // tokens from "Auto: <model>" rows, merged into this model
+  cost: number;               // estimated cost: requests * model multiplier * EXCESS_REQUEST_COST
 }
 
-/** Per-model token totals and efficiency metrics, sorted by total tokens desc. */
+/** Per-model token totals and efficiency metrics, sorted by total tokens desc.
+ *  "Auto: <model>" rows are merged into the base model; their tokens are tracked in autoTokens. */
 export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] {
   const byModel = new Map<string, ModelTokenStats>();
 
@@ -1838,18 +1857,23 @@ export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] 
       item.cacheReadTokens !== undefined || item.cacheWriteTokens !== undefined;
     if (!hasAny) return;
 
-    if (!byModel.has(item.model)) {
-      byModel.set(item.model, {
-        model: item.model, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
-        outputInputRatio: 0, tokensPerRequest: 0,
+    const modelKey = normalizeModelName(item.model);
+    if (!byModel.has(modelKey)) {
+      byModel.set(modelKey, {
+        model: modelKey, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0,
+        outputInputRatio: 0, tokensPerRequest: 0, autoTokens: 0, cost: 0,
       });
     }
-    const s = byModel.get(item.model)!;
+    const s = byModel.get(modelKey)!;
     s.requests += item.requestsUsed;
     s.input += item.inputTokens ?? 0;
     s.output += item.outputTokens ?? 0;
     s.cacheRead += item.cacheReadTokens ?? 0;
     s.cacheWrite += item.cacheWriteTokens ?? 0;
+    if (isAutoModel(item.model)) {
+      s.autoTokens += (item.inputTokens ?? 0) + (item.outputTokens ?? 0) +
+        (item.cacheReadTokens ?? 0) + (item.cacheWriteTokens ?? 0);
+    }
   });
 
   return Array.from(byModel.values())
@@ -1857,6 +1881,7 @@ export function getModelTokenStats(data: CopilotUsageData[]): ModelTokenStats[] 
       ...s,
       outputInputRatio: s.input > 0 ? s.output / s.input : 0,
       tokensPerRequest: s.requests > 0 ? (s.input + s.output + s.cacheRead + s.cacheWrite) / s.requests : 0,
+      cost: s.requests * getModelMultiplier(s.model) * EXCESS_REQUEST_COST,
     }))
     .sort((a, b) =>
       (b.input + b.output + b.cacheRead + b.cacheWrite) - (a.input + a.output + a.cacheRead + a.cacheWrite)

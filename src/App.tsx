@@ -138,6 +138,16 @@ function getNiceAxisCeiling(value: number): number {
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+const toggleInSet = (prev: Set<string>, key: string): Set<string> => {
+  const next = new Set(prev);
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
+  return next;
+};
+
 type WeeklyTopModelsChartProps = {
   dailyModelData: DailyModelData[];
   top5Models: string[];
@@ -150,6 +160,7 @@ const WeeklyTopModelsChart = React.memo(function WeeklyTopModelsChart({
   top5Models,
 }: WeeklyTopModelsChartProps) {
   const [selectedWeekIndex, setSelectedWeekIndex] = useState<number>(0);
+  const [hiddenModels, setHiddenModels] = useState<Set<string>>(new Set());
 
   const dailyRequestsByDate = useMemo(() => {
     const groupedByDate: Record<string, Record<string, number>> = {};
@@ -259,6 +270,7 @@ const WeeklyTopModelsChart = React.memo(function WeeklyTopModelsChart({
 
     Object.values(dailyRequestsByDate).forEach((dayValues) => {
       weeklyChartSeries.forEach((seriesKey) => {
+        if (hiddenModels.has(seriesKey)) return;
         if (seriesKey === weeklyOtherLabel) {
           let other = 0;
           Object.entries(dayValues).forEach(([model, requests]) => {
@@ -275,7 +287,7 @@ const WeeklyTopModelsChart = React.memo(function WeeklyTopModelsChart({
     });
 
     return getNiceAxisCeiling(maxValue);
-  }, [dailyRequestsByDate, top5Models, weeklyOtherLabel, weeklyChartSeries]);
+  }, [dailyRequestsByDate, top5Models, weeklyOtherLabel, weeklyChartSeries, hiddenModels]);
 
   const selectedWeekLabel = useMemo(() => {
     if (!selectedWeekDates.length) return '';
@@ -360,13 +372,20 @@ const WeeklyTopModelsChart = React.memo(function WeeklyTopModelsChart({
               return null;
             }}
           />
-          <Legend />
+          <Legend
+            onClick={(e) => {
+              const key = String(e?.dataKey ?? '');
+              if (key) setHiddenModels(prev => toggleInSet(prev, key));
+            }}
+            wrapperStyle={{ cursor: 'pointer' }}
+          />
           {weeklyChartSeries.map((model) => (
             <Bar
               key={model}
               dataKey={model}
               name={model}
               fill={weeklyModelColors[model]}
+              hide={hiddenModels.has(model)}
             />
           ))}
         </BarChart>
@@ -526,6 +545,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [visibleBars, setVisibleBars] = useState(['compliantRequests', 'exceedingRequests']);
   const [hiddenPowerUserModelNames, setHiddenPowerUserModelNames] = useState<string[]>([]);
+  const [hiddenAllModelsChartModels, setHiddenAllModelsChartModels] = useState<Set<string>>(new Set());
+  const [hiddenTop5ChartModels, setHiddenTop5ChartModels] = useState<Set<string>>(new Set());
   const [showExceededDetails, setShowExceededDetails] = useState(false);
   const [exceededDetailsData, setExceededDetailsData] = useState<ExceededRequestDetail[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -2117,6 +2138,32 @@ function App() {
                         <TableHead className="text-right">
                           <button
                             className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
+                            onClick={() => handleModelSort('includedAic')}
+                          >
+                            Included
+                            {modelSortColumn === 'includedAic' ? (
+                              modelSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button
+                            className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
+                            onClick={() => handleModelSort('overageAic')}
+                          >
+                            Overage
+                            {modelSortColumn === 'overageAic' ? (
+                              modelSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <button
+                            className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
                             onClick={() => handleModelSort('netAmount')}
                           >
                             Net Cost
@@ -2155,6 +2202,8 @@ function App() {
                           <TableCell className="text-right">{item.exceedingRequests.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
                           </>) : (<>
                           <TableCell className="text-right">{item.aicQuantity.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
+                          <TableCell className="text-right">{item.includedAic.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
+                          <TableCell className="text-right">{item.overageAic.toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}</TableCell>
                           <TableCell className="text-right">${item.netAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                           </>)}
                           {!isNewFormat && (
@@ -2179,6 +2228,12 @@ function App() {
                         </>) : (<>
                         <TableCell className="text-right font-medium">
                           {modelSummary.reduce((sum, item) => sum + item.aicQuantity, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {modelSummary.reduce((sum, item) => sum + item.includedAic, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {modelSummary.reduce((sum, item) => sum + item.overageAic, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           ${modelSummary.reduce((sum, item) => sum + item.netAmount, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
@@ -2474,7 +2529,13 @@ function App() {
                       return null;
                     }}
                   />
-                  <Legend />
+                  <Legend
+                    onClick={(e) => {
+                      const key = String(e?.dataKey ?? '');
+                      if (key) setHiddenAllModelsChartModels(prev => toggleInSet(prev, key));
+                    }}
+                    wrapperStyle={{ cursor: 'pointer' }}
+                  />
                   
                   {/* Generate a bar for each model */}
                   {getAllUniqueModels().map((model) => (
@@ -2483,6 +2544,7 @@ function App() {
                       dataKey={model}
                       name={model}
                       fill={getAllModelColors()[model]}
+                      hide={hiddenAllModelsChartModels.has(model)}
                     />
                   ))}
                 </BarChart>
@@ -2552,7 +2614,13 @@ function App() {
                       return null;
                     }}
                   />
-                  <Legend />
+                  <Legend
+                    onClick={(e) => {
+                      const key = String(e?.dataKey ?? '');
+                      if (key) setHiddenTop5ChartModels(prev => toggleInSet(prev, key));
+                    }}
+                    wrapperStyle={{ cursor: 'pointer' }}
+                  />
                   
                   {/* Generate a bar for each model */}
                   {getUniqueModelsForBarChart().map((model) => (
@@ -2561,6 +2629,7 @@ function App() {
                       dataKey={model}
                       name={model}
                       fill={getModelColors()[model]}
+                      hide={hiddenTop5ChartModels.has(model)}
                     />
                   ))}
                 </BarChart>
