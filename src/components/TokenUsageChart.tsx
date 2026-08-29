@@ -194,12 +194,20 @@ export const TokenUsageChart = React.memo(function TokenUsageChart({ data }: Tok
                   <SortableTableHead column="tokensPerRequest" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">
                     <span title="Total tokens divided by requests">Tokens / request</span>
                   </SortableTableHead>
+                  <SortableTableHead column="cost" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="text-right" align="right">
+                    <span title="Estimated cost: requests × model multiplier × $0.04">Est. cost</span>
+                  </SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedModelStats.map(m => (
+                {sortedModelStats.map(m => {
+                  const total = m.input + m.output + m.cacheRead + m.cacheWrite;
+                  const modelTitle = m.autoTokens > 0
+                    ? `${(total - m.autoTokens).toLocaleString()} tokens | ${total.toLocaleString()} tokens with auto`
+                    : undefined;
+                  return (
                   <TableRow key={m.model}>
-                    <TableCell className="font-medium">{m.model}</TableCell>
+                    <TableCell className="font-medium" title={modelTitle}>{m.model}</TableCell>
                     <TableCell className="text-right">{m.requests.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right" title={m.input.toLocaleString()}>{formatTokens(m.input)}</TableCell>
                     <TableCell className="text-right" title={m.output.toLocaleString()}>{formatTokens(m.output)}</TableCell>
@@ -207,8 +215,10 @@ export const TokenUsageChart = React.memo(function TokenUsageChart({ data }: Tok
                     <TableCell className="text-right" title={m.cacheWrite.toLocaleString()}>{formatTokens(m.cacheWrite)}</TableCell>
                     <TableCell className="text-right">{m.outputInputRatio.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right">{formatTokens(m.tokensPerRequest)}</TableCell>
+                    <TableCell className="text-right">${m.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
