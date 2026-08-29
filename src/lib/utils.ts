@@ -1905,6 +1905,47 @@ export function getUserTokenTotals(data: CopilotUsageData[]): Map<string, UserTo
   return totals;
 }
 
+export interface UserActivityStats {
+  /** Number of distinct calendar days (UTC) with at least one request. */
+  activeDays: number;
+  /** First ISO week key with usage, e.g. "2026-W23". Empty string when no data. */
+  firstWeek: string;
+  /** Display label for the first week (week start date, e.g. "Jun 8, 2026"). */
+  firstWeekLabel: string;
+}
+
+/**
+ * Per-user activity stats: distinct active days and the first ISO week with usage.
+ */
+export function getUserActivityStats(data: CopilotUsageData[]): Map<string, UserActivityStats> {
+  const days = new Map<string, Set<string>>();
+  const firstWeek = new Map<string, string>();
+
+  data.forEach(item => {
+    if (!days.has(item.user)) days.set(item.user, new Set());
+    days.get(item.user)!.add(item.timestamp.toISOString().slice(0, 10));
+
+    const isoWeek = getISOWeek(item.timestamp);
+    const key = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+    const current = firstWeek.get(item.user);
+    if (current === undefined || key < current) firstWeek.set(item.user, key);
+  });
+
+  const stats = new Map<string, UserActivityStats>();
+  for (const [user, userDays] of days) {
+    const week = firstWeek.get(user) ?? '';
+    let firstWeekLabel = '';
+    if (week) {
+      const [yearStr, weekStr] = week.split('-W');
+      const { startDate } = getISOWeekDates(Number(yearStr), Number(weekStr));
+      firstWeekLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    }
+    stats.set(user, { activeDays: userDays.size, firstWeek: week, firstWeekLabel });
+  }
+
+  return stats;
+}
+
 /** Compact formatting for large token counts, e.g. 1.2M, 340K. */
 export function formatTokens(value: number): string {
   if (Math.abs(value) >= 1_000_000_000) return `${(value / 1_000_000_000).toLocaleString('en-US', { maximumFractionDigits: 1 })}B`;
