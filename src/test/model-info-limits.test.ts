@@ -4,9 +4,8 @@ import {
   CopilotUsageData, 
   COPILOT_PLANS, 
   PLAN_MONTHLY_LIMITS,
-  MODEL_MULTIPLIERS,
+  MODEL_COSTS,
   DEFAULT_MODELS,
-  EXCESS_REQUEST_COST
 } from '../lib/utils';
 
 describe('Model Info and Limits Feature', () => {
@@ -45,14 +44,14 @@ describe('Model Info and Limits Feature', () => {
     }
   ];
 
-  it('should calculate plan limits based on model multipliers', () => {
+  it('should calculate plan limits based on model costs', () => {
     const result = getModelUsageSummary(mockData);
     
     const defaultGroup = result.find(item => item.model === 'Default (GPT-4o, GPT-4.1)');
     expect(defaultGroup).toBeDefined();
     
     if (defaultGroup) {
-      expect(defaultGroup.multiplier).toBe(0);
+      expect(defaultGroup.costPerRequest).toBe(0);
       expect(defaultGroup.individualPlanLimit).toBe(50); // Constant plan limit, not Infinity
       expect(defaultGroup.businessPlanLimit).toBe(300); // Constant plan limit, not Infinity
       expect(defaultGroup.enterprisePlanLimit).toBe(1000); // Constant plan limit, not Infinity
@@ -98,15 +97,15 @@ describe('Model Info and Limits Feature', () => {
     expect(defaultGroup).toBeDefined();
     
     if (defaultGroup) {
-      // Default models are free (multiplier = 0), so excess cost is always $0.00
+      // Default models are free ($0 cost), so excess cost is always $0.00
       // even if there are exceeding requests
       expect(defaultGroup.excessCost).toBe(0);
     }
 
     const o3Model = result.find(item => item.model === 'o3-mini-2025-01-31');
     if (o3Model) {
-      // 10 exceeding requests * $0.04 = $0.40
-      expect(o3Model.excessCost).toBe(10 * EXCESS_REQUEST_COST);
+      // 10 exceeding requests * $0.0132 per request = $0.132
+      expect(o3Model.excessCost).toBeCloseTo(10 * 0.0132, 5);
     }
   });
 
@@ -121,7 +120,7 @@ describe('Model Info and Limits Feature', () => {
       expect(item).toHaveProperty('totalRequests');
       expect(item).toHaveProperty('compliantRequests');
       expect(item).toHaveProperty('exceedingRequests');
-      expect(item).toHaveProperty('multiplier');
+      expect(item).toHaveProperty('costPerRequest');
       expect(item).toHaveProperty('individualPlanLimit');
       expect(item).toHaveProperty('businessPlanLimit');
       expect(item).toHaveProperty('enterprisePlanLimit');
@@ -133,7 +132,7 @@ describe('Model Info and Limits Feature', () => {
       expect(typeof item.totalRequests).toBe('number');
       expect(typeof item.compliantRequests).toBe('number');
       expect(typeof item.exceedingRequests).toBe('number');
-      expect(typeof item.multiplier).toBe('number');
+      expect(typeof item.costPerRequest).toBe('number');
       expect(typeof item.individualPlanLimit).toBe('number');
       expect(typeof item.businessPlanLimit).toBe('number');
       expect(typeof item.enterprisePlanLimit).toBe('number');
@@ -141,7 +140,7 @@ describe('Model Info and Limits Feature', () => {
     });
   });
 
-  it('should handle unknown models with default multiplier', () => {
+  it('should handle unknown models with default cost', () => {
     const unknownModelData: CopilotUsageData[] = [
       {
         timestamp: new Date('2025-01-01T10:00:00Z'),
@@ -157,9 +156,9 @@ describe('Model Info and Limits Feature', () => {
     
     expect(result).toHaveLength(1);
     expect(result[0].model).toBe('unknown-model-2025');
-    expect(result[0].multiplier).toBe(1); // Default multiplier
-    expect(result[0].individualPlanLimit).toBe(50); // 50 / 1
-    expect(result[0].businessPlanLimit).toBe(300); // 300 / 1
+    expect(result[0].costPerRequest).toBe(0.04); // Default cost per request
+    expect(result[0].individualPlanLimit).toBe(50);
+    expect(result[0].businessPlanLimit).toBe(300);
   });
 
   it('should sort results by total requests descending', () => {
