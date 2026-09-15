@@ -5,35 +5,21 @@
 //
 // To make manual changes, edit `model-multipliers.legacy.ts` instead.
 
-export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-05-29-091242';
+export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-09-11-081258';
 
 export const CURRENT_MODEL_COSTS: Record<string, number> = {
-  'Claude Haiku 4.5': 0.33,
-  'Claude Opus 4.5': 3,
-  'Claude Opus 4.6': 3,
-  'Claude Opus 4.6 (fast mode) (preview)': 30,
-  'Claude Opus 4.7': 15,
-  'Claude Sonnet 4.5': 1,
-  'Claude Sonnet 4.6': 1,
-  'Gemini 2.5 Pro': 1,
-  'Gemini 3 Flash': 0.33,
-  'Gemini 3.1 Pro': 1,
-  'Gemini 3.5 Flash': 14,
-  'GPT-4.1': 0,
-  'GPT-5 mini': 0,
-  'GPT-5.2': 1,
-  'GPT-5.2-Codex': 1,
-  'GPT-5.3-Codex': 1,
-  'GPT-5.4': 1,
-  'GPT-5.4 mini': 0.33,
-  'GPT-5.4 nano': 0.25,
-  'GPT-5.5': 7.5,
-  'Raptor mini': 0,
+  'GPT-5 mini': 2,
+  'GPT-5.3-Codex': 14,
+  'GPT-5.4': 15,
+  'GPT-5.4 mini': 4.5,
+  'GPT-5.4 nano': 1.25,
+  'GPT-5.5': 30,
+  'GPT-5.6 Luna': 1.2,
+  'GPT-5.6 Sol': 20,
+  'GPT-5.6 Terra': 12,
+  'GPT-6 Astra': 50,
 };
 
 // Models with a $0 cost (free) are treated as "Default" and grouped together.
 export const CURRENT_DEFAULT_MODELS: string[] = [
-  'GPT-4.1',
-  'GPT-5 mini',
-  'Raptor mini',
 ];
