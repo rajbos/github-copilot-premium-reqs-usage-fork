@@ -5,7 +5,7 @@
 //
 // To make manual changes, edit `model-multipliers.legacy.ts` instead.
 
-export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-09-11-081258';
+export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-09-22-081327';
 
 export const CURRENT_MODEL_COSTS: Record<string, number> = {
   'GPT-5 mini': 2,
