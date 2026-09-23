@@ -51,14 +51,14 @@ export function MonthSelector({
   const coverage: MonthCoverage | null = data && selectedMonth ? getMonthCoverage(data, selectedMonth) : null;
   
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Calendar className="h-4 w-4 text-muted-foreground" />
       <Select 
         value={selectedMonth} 
         onValueChange={onMonthChange}
         disabled={disabled || availableMonths.length === 0}
       >
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-[min(200px,calc(100vw-4rem))]">
           <SelectValue placeholder="Select month" />
         </SelectTrigger>
         <SelectContent>

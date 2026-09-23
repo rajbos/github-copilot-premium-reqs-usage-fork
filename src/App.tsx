@@ -16,7 +16,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DeploymentFooter } from "@/components/DeploymentFooter";
 import { 
-  AggregatedData, 
   CopilotUsageData, 
   ModelUsageSummary,
   DailyModelData,
@@ -24,10 +23,7 @@ import {
   PowerUserSummary,
   PowerUserDailyBreakdown,
   ExceededRequestDetail,
-  ExceededUserSummary,
-  ProjectedUserData,
   MonthOption,
-  UserAnalysisData,
   UserBehaviorDataPoint,
   aggregateDataByDay, 
   parseCSV,
@@ -57,6 +53,8 @@ import {
 } from "@/lib/utils";
 import { MonthSelector } from "@/components/MonthSelector";
 import { UserSearch } from "@/components/UserSearch";
+import { EnterpriseFilters } from "@/components/EnterpriseFilters";
+import { EMPTY_LISTS, filterUserViews, normalizeUsername, summarizeUsage, type UserLists } from "@/lib/enterprise-filters";
 import { AICCostChart } from "@/components/AICCostChart";
 import { PremiumCostChart } from "@/components/PremiumCostChart";
 
@@ -497,37 +495,23 @@ const BehaviorScatterChart = React.memo(function BehaviorScatterChart({
 
 function App() {
   const [showPrivacyBanner, setShowPrivacyBanner] = useState(true);
-  const [data, setData] = useState<CopilotUsageData[] | null>(null);
   const [rawData, setRawData] = useState<CopilotUsageData[] | null>(null); // Store original unfiltered data
   const [availableMonths, setAvailableMonths] = useState<MonthOption[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [aggregatedData, setAggregatedData] = useState<AggregatedData[]>([]);
-  const [uniqueModels, setUniqueModels] = useState<string[]>([]);
-  const [modelSummary, setModelSummary] = useState<ModelUsageSummary[]>([]);
-  const [dailyModelData, setDailyModelData] = useState<DailyModelData[]>([]);
-  const [powerUserSummary, setPowerUserSummary] = useState<PowerUserSummary | null>(null);
-  const [powerUserDailyBreakdown, setPowerUserDailyBreakdown] = useState<PowerUserDailyBreakdown[]>([]);
+  const [activeProfile, setActiveProfile] = useState<string | null>(null);
+  const [userLists, setUserLists] = useState<UserLists>(EMPTY_LISTS);
   const [selectedPowerUser, setSelectedPowerUser] = useState<string | null>(null);
-  const [lastDateAvailable, setLastDateAvailable] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>(COPILOT_PLANS.BUSINESS); // Default to Business
   const [isProcessing, setIsProcessing] = useState(false);
   const [visibleBars, setVisibleBars] = useState(['compliantRequests', 'exceedingRequests']);
   const [hiddenPowerUserModelNames, setHiddenPowerUserModelNames] = useState<string[]>([]);
   const [showExceededDetails, setShowExceededDetails] = useState(false);
-  const [exceededDetailsData, setExceededDetailsData] = useState<ExceededRequestDetail[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [usersExceedingQuota, setUsersExceedingQuota] = useState<number>(0);
-  const [projectedUsersExceedingQuota, setProjectedUsersExceedingQuota] = useState<number>(0);
   const [showPotentialCostDetails, setShowPotentialCostDetails] = useState(false);
   const [showProjectedUsersDialog, setShowProjectedUsersDialog] = useState(false);
-  const [projectedUsersData, setProjectedUsersData] = useState<ProjectedUserData[]>([]);
   const [showExceededUsersOverview, setShowExceededUsersOverview] = useState(false);
-  const [exceededUsersOverviewData, setExceededUsersOverviewData] = useState<ExceededUserSummary[]>([]);
   const [selectedSearchUser, setSelectedSearchUser] = useState<string | null>(null);
-  const [userAnalysisData, setUserAnalysisData] = useState<UserAnalysisData | null>(null);
-  const [expectedExcessCost, setExpectedExcessCost] = useState<number>(0);
-  const [dailyOveruserData, setDailyOveruserData] = useState<DailyOveruserData[]>([]);
   const [modelSortColumn, setModelSortColumn] = useState<keyof ModelUsageSummary | null>(null);
   const [modelSortDirection, setModelSortDirection] = useState<'asc' | 'desc'>('desc');
   const [totalLicensedUsers, setTotalLicensedUsers] = useState<number | null>(null);
@@ -551,35 +535,63 @@ function App() {
     return userAnonMap.get(name) ?? name;
   }, [demoMode, userAnonMap]);
   
-  // Recalculate users exceeding quota when plan selection changes
-  useEffect(() => {
-    if (data && data.length > 0) {
-      const exceedingUsersCount = getUniqueUsersExceedingQuota(data, selectedPlan);
-      setUsersExceedingQuota(exceedingUsersCount);
-      
-      const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(data, selectedPlan);
-      setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
-      
-      const projectedDetails = getProjectedUsersExceedingQuotaDetails(data, selectedPlan);
-      setProjectedUsersData(projectedDetails);
+  const monthRows = useMemo(
+    () => rawData && selectedMonth ? filterDataByMonth(rawData, selectedMonth) : null,
+    [rawData, selectedMonth],
+  );
+  const views = useMemo(
+    () => monthRows ? filterUserViews(monthRows, activeProfile ? userLists : EMPTY_LISTS, selectedSearchUser) : null,
+    [monthRows, activeProfile, userLists, selectedSearchUser],
+  );
+  const data = views?.baseline ?? null;
+  const displayData = views?.display ?? null;
+  const baselineSummary = useMemo(() => summarizeUsage(data ?? []), [data]);
+  const cohortSummary = useMemo(() => summarizeUsage(views?.cohort ?? []), [views]);
+  const compareAIC = !!data?.length && data.every(item => item.aicQuantity !== undefined);
 
-      const expectedCost = getExpectedExcessCost(data, selectedPlan);
-      setExpectedExcessCost(expectedCost);
-      
-      // Update user analysis data if a user is selected
-      if (selectedSearchUser) {
-        const analysisData = getUserAnalysisData(data, selectedSearchUser);
-        setUserAnalysisData(analysisData);
-      }
-    }
-  }, [selectedPlan, data, selectedSearchUser]);
+  const derived = useMemo(() => {
+    const rows = displayData ?? [];
+    const powerUsers = getPowerUsers(rows);
+    return {
+      aggregatedData: aggregateDataByDay(rows),
+      uniqueModels: Array.from(new Set(rows.map(item => item.model))),
+      modelSummary: getModelUsageSummary(rows),
+      dailyModelData: getDailyModelData(rows),
+      powerUserSummary: powerUsers,
+      powerUserDailyBreakdown: getPowerUserDailyBreakdown(rows, powerUsers.powerUsers.map(user => user.user)),
+      usersExceedingQuota: getUniqueUsersExceedingQuota(rows, selectedPlan),
+      exceededUsersOverviewData: getExceededUsersOverview(rows),
+      projectedUsersExceedingQuota: getProjectedUsersExceedingQuota(rows, selectedPlan),
+      projectedUsersData: getProjectedUsersExceedingQuotaDetails(rows, selectedPlan),
+      lastDateAvailable: getLastDateFromData(rows),
+      expectedExcessCost: getExpectedExcessCost(rows, selectedPlan),
+      dailyOveruserData: getDailyOveruserPercentage(rows, totalLicensedUsers ?? undefined),
+      userAnalysisData: selectedSearchUser && rows.length ? getUserAnalysisData(rows, selectedSearchUser) : null,
+    };
+  }, [displayData, selectedPlan, totalLicensedUsers, selectedSearchUser]);
+  const {
+    aggregatedData, uniqueModels, modelSummary, dailyModelData, powerUserSummary,
+    powerUserDailyBreakdown, usersExceedingQuota, exceededUsersOverviewData,
+    projectedUsersExceedingQuota, projectedUsersData, lastDateAvailable,
+    expectedExcessCost, dailyOveruserData, userAnalysisData,
+  } = derived;
+  const exceededDetailsData = useMemo<ExceededRequestDetail[]>(
+    () => displayData && selectedPowerUser
+      ? getExceededRequestDetails(displayData, undefined, selectedPowerUser) : [],
+    [displayData, selectedPowerUser],
+  );
 
-  // Get display data - either filtered by user or all data
-  const displayData = useMemo(() => {
-    if (!data) return null;
-    if (!selectedSearchUser) return data;
-    return data.filter(item => item.user === selectedSearchUser);
-  }, [data, selectedSearchUser]);
+  const resetViewDialogs = () => {
+    setSelectedPowerUser(null);
+    setShowExceededDetails(false);
+    setShowExceededUsersOverview(false);
+    setShowProjectedUsersDialog(false);
+  };
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    setSelectedSearchUser(null);
+    resetViewDialogs();
+  };
 
   // Detect whether the data contains new format fields (premium cost data)
   const isNewFormat = useMemo(() => {
@@ -589,163 +601,26 @@ function App() {
 
   const unitLabel = isNewFormat ? 'AI Credits' : 'Requests';
 
-  /**
-   * Process data for a specific month and update all derived state
-   * This function aggregates and processes data for the selected month only
-   */
-  const processDataForMonth = useCallback((rawData: CopilotUsageData[], month: string) => {
-    // Filter data by selected month
-    const filteredData = filterDataByMonth(rawData, month);
-    setData(filteredData);
-
-    // Get unique models from filtered data
-    const models = Array.from(new Set(filteredData.map(item => item.model)));
-    setUniqueModels(models);
-    
-    // Aggregate data by day and model for the selected month
-    const aggregated = aggregateDataByDay(filteredData);
-    setAggregatedData(aggregated);
-    
-    // Get model usage summary for the selected month
-    const summary = getModelUsageSummary(filteredData);
-    setModelSummary(summary);
-    
-    // Get daily model data for bar chart for the selected month
-    const dailyData = getDailyModelData(filteredData);
-    setDailyModelData(dailyData);
-    
-    // Get power users data for the selected month
-    const powerUsers = getPowerUsers(filteredData);
-    setPowerUserSummary(powerUsers);
-    
-    // Get power user daily breakdown for the stacked bar chart for the selected month
-    const powerUserNames = powerUsers.powerUsers.map(user => user.user);
-    const powerUserBreakdown = getPowerUserDailyBreakdown(filteredData, powerUserNames);
-    setPowerUserDailyBreakdown(powerUserBreakdown);
-    
-    // Get count of users exceeding quota for top bar display for the selected month
-    const exceedingUsersCount = getUniqueUsersExceedingQuota(filteredData, selectedPlan);
-    setUsersExceedingQuota(exceedingUsersCount);
-    
-    // Compute exceeded users overview for the overview dialog
-    setExceededUsersOverviewData(getExceededUsersOverview(filteredData));
-    
-    // Get projected count of users who will exceed quota by month-end for the selected month
-    const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(filteredData, selectedPlan);
-    setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
-    
-    // Get projected users details for the selected month
-    const projectedDetails = getProjectedUsersExceedingQuotaDetails(filteredData, selectedPlan);
-    setProjectedUsersData(projectedDetails);
-    
-    // Get the last date available in the filtered CSV for the selected month
-    const lastDate = getLastDateFromData(filteredData);
-    setLastDateAvailable(lastDate);
-
-    // Get expected excess cost for the selected month
-    const expectedCost = getExpectedExcessCost(filteredData, selectedPlan);
-    setExpectedExcessCost(expectedCost);
-
-    // Reset selected power user when month changes
-    setSelectedPowerUser(null);
-    
-    // Reset selected search user when month changes and recalculate analysis
-    if (selectedSearchUser) {
-      const analysisData = getUserAnalysisData(filteredData, selectedSearchUser);
-      setUserAnalysisData(analysisData);
-    }
-  }, [selectedPlan, selectedSearchUser]);
-
-  // Reprocess data when month selection changes
-  useEffect(() => {
-    if (rawData && selectedMonth) {
-      processDataForMonth(rawData, selectedMonth);
-    }
-  }, [selectedMonth, rawData, selectedPlan, processDataForMonth]);
-  
-  // Reprocess display data when user selection changes
-  useEffect(() => {
-    if (displayData && displayData.length > 0) {
-      // Get unique models from display data
-      const models = Array.from(new Set(displayData.map(item => item.model)));
-      setUniqueModels(models);
-      
-      // Aggregate data by day and model for display data
-      const aggregated = aggregateDataByDay(displayData);
-      setAggregatedData(aggregated);
-      
-      // Get model usage summary for display data
-      const summary = getModelUsageSummary(displayData);
-      setModelSummary(summary);
-      
-      // Get daily model data for bar chart for display data
-      const dailyData = getDailyModelData(displayData);
-      setDailyModelData(dailyData);
-      
-      // Get power users data for display data
-      const powerUsers = getPowerUsers(displayData);
-      setPowerUserSummary(powerUsers);
-      
-      // Get power user daily breakdown for display data
-      const powerUserNames = powerUsers.powerUsers.map(user => user.user);
-      const powerUserBreakdown = getPowerUserDailyBreakdown(displayData, powerUserNames);
-      setPowerUserDailyBreakdown(powerUserBreakdown);
-      
-      // Get count of users exceeding quota for display data
-      const exceedingUsersCount = getUniqueUsersExceedingQuota(displayData, selectedPlan);
-      setUsersExceedingQuota(exceedingUsersCount);
-      
-      // Compute exceeded users overview for the overview dialog
-      setExceededUsersOverviewData(getExceededUsersOverview(displayData));
-      
-      // Get projected count of users who will exceed quota by month-end for display data
-      const projectedExceedingUsersCount = getProjectedUsersExceedingQuota(displayData, selectedPlan);
-      setProjectedUsersExceedingQuota(projectedExceedingUsersCount);
-      
-      // Get projected users details for display data
-      const projectedDetails = getProjectedUsersExceedingQuotaDetails(displayData, selectedPlan);
-      setProjectedUsersData(projectedDetails);
-      
-      // Get the last date available in the display data
-      const lastDate = getLastDateFromData(displayData);
-      setLastDateAvailable(lastDate);
-    }
-  }, [displayData, selectedPlan]);
-
-  // Recompute daily overuser data whenever the display data or total licensed users override changes
-  useEffect(() => {
-    if (displayData && displayData.length > 0) {
-      setDailyOveruserData(
-        getDailyOveruserPercentage(displayData, totalLicensedUsers ?? undefined)
-      );
-    } else {
-      setDailyOveruserData([]);
-    }
-  }, [displayData, totalLicensedUsers]);
-
   const handlePowerUserSelect = useCallback((userName: string | null) => {
     setSelectedPowerUser(userName);
   }, []);
 
   const handleSearchUserSelect = useCallback((userName: string | null) => {
     setSelectedSearchUser(userName);
-    if (userName && data) {
-      const analysisData = getUserAnalysisData(data, userName);
-      setUserAnalysisData(analysisData);
-    } else {
-      setUserAnalysisData(null);
-    }
-  }, [data]);
+    setSelectedPowerUser(null);
+    setShowExceededDetails(false);
+    setShowExceededUsersOverview(false);
+    setShowProjectedUsersDialog(false);
+  }, []);
 
   // Generate filtered power user daily breakdown based on selected user
   const getFilteredPowerUserBreakdown = useCallback(() => {
-    if (!selectedPowerUser || !data) {
+    if (!selectedPowerUser || !displayData) {
       return powerUserDailyBreakdown;
     }
     
-    // Filter the original data to only include the selected user, then regenerate breakdown
-    return getPowerUserDailyBreakdown(data, [selectedPowerUser]);
-  }, [selectedPowerUser, data, powerUserDailyBreakdown]);
+    return getPowerUserDailyBreakdown(displayData, [selectedPowerUser]);
+  }, [selectedPowerUser, displayData, powerUserDailyBreakdown]);
 
   // Get unique models from the power user breakdown data
   const getPowerUserModels = useCallback(() => {
@@ -760,19 +635,13 @@ function App() {
   }, [getPowerUserModels, hiddenPowerUserModelNames]);
 
   const resetDataState = useCallback(() => {
-    setData(null);
     setRawData(null);
     setAvailableMonths([]);
     setSelectedMonth('');
-    setAggregatedData([]);
-    setModelSummary([]);
-    setDailyModelData([]);
-    setPowerUserSummary(null);
-    setPowerUserDailyBreakdown([]);
+    setActiveProfile(null);
+    setUserLists(EMPTY_LISTS);
+    setSelectedSearchUser(null);
     setSelectedPowerUser(null);
-    setUsersExceedingQuota(0);
-    setLastDateAvailable(null);
-    setDailyOveruserData([]);
     setDemoMode(false);
   }, []);
 
@@ -829,6 +698,9 @@ function App() {
           throw new Error('No records found in the uploaded files.');
         }
 
+        setActiveProfile(null);
+        setUserLists(EMPTY_LISTS);
+        setSelectedSearchUser(null);
         setRawData(allData);
 
         const months = getAvailableMonths(allData);
@@ -836,10 +708,6 @@ function App() {
 
         const defaultMonth = months.find(m => m.isCurrentMonth)?.value || months[0]?.value || '';
         setSelectedMonth(defaultMonth);
-
-        if (defaultMonth) {
-          processDataForMonth(allData, defaultMonth);
-        }
 
         setIsProcessing(false);
         setDemoMode(true);
@@ -854,7 +722,7 @@ function App() {
         toast.error(error instanceof Error ? error.message : 'Failed to process the uploaded file(s).');
         resetDataState();
       });
-  }, [processDataForMonth, resetDataState]);
+  }, [resetDataState]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     if (isProcessing) return;
@@ -1137,15 +1005,12 @@ function App() {
   };
 
   const handleExceedingBarClick = (barData) => {
-    if (!data || !selectedPowerUser) return;
+    if (!displayData || !selectedPowerUser) return;
     
     // Get the date from the clicked bar for display purposes
     const clickedDate = barData.date;
     setSelectedDate(clickedDate);
     
-    // Get exceeded request details for the selected power user across ALL dates
-    const exceededDetails = getExceededRequestDetails(data, null, selectedPowerUser);
-    setExceededDetailsData(exceededDetails);
     setShowExceededDetails(true);
   };
 
@@ -1190,15 +1055,15 @@ function App() {
   return (
     <div className="container max-w-[1600px] mx-auto py-8 px-4 min-h-screen">
       <header className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-4">
             <img src="xebia-logo.png" alt="Xebia Logo" className="h-10" />
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">
               GitHub Copilot AIC Usage Analyzer
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {data && data.length > 0 && (
+            {rawData && rawData.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1249,14 +1114,14 @@ function App() {
               </div>
               <p className="text-sm sm:text-base font-medium text-gray-800 dark:text-gray-100 leading-relaxed">
                 All CSV data is <span className="font-bold text-green-800 dark:text-green-300">processed locally in your browser</span>. We <span className="font-bold">never upload, store, or transmit your data</span> to any server.<br className="hidden sm:block" />
-                Your usage information remains <span className="font-bold text-green-800 dark:text-green-300">completely private and secure</span> on your machine.
+                Usage rows remain in memory; enterprise profile names and username lists are saved in this browser's local storage.
               </p>
             </div>
           </div>
         </Card>
       )}
       
-      {!(data && data.length > 0) && (
+      {!rawData && (
         <Card className="mb-8">
           <div 
             className={`p-6 text-center ${isDragging ? 'bg-secondary/50' : ''} ${isProcessing ? 'opacity-50 pointer-events-none' : ''} transition-colors duration-200`}
@@ -1328,10 +1193,74 @@ function App() {
         </Card>
       )}
       
+      {rawData && (
+        <EnterpriseFilters
+          users={Array.from(new Set(rawData.map(item => item.user))).sort()}
+          activeProfile={activeProfile}
+          lists={userLists}
+          onProfileChange={(id, saved) => {
+            setActiveProfile(id);
+            setUserLists(saved);
+            setSelectedSearchUser(null);
+            resetViewDialogs();
+          }}
+          onListsChange={saved => {
+            setUserLists(saved);
+            if (selectedSearchUser && saved.excluded.includes(normalizeUsername(selectedSearchUser))) {
+              setSelectedSearchUser(null);
+            }
+            resetViewDialogs();
+          }}
+          displayUser={displayUser}
+        />
+      )}
+
+      {rawData && (
+        <Card className="mb-6 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <h2 className="text-lg font-semibold">Cohort compared with overall</h2>
+            <label className="flex items-center gap-2 text-sm">
+              Copilot plan
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={selectedPlan} onChange={event => setSelectedPlan(event.target.value)}>
+                {Object.values(COPILOT_PLANS).map(plan => <option key={plan} value={plan}>{plan}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Overall is every loaded user in this month except excluded accounts. Cohort is selected users except excluded accounts.
+            {selectedSearchUser ? " Single-user search overrides the dashboard view, not these comparison totals." : ""}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {([
+              ["Overall population", baselineSummary],
+              ["Selected cohort", cohortSummary],
+            ] as const).map(([label, summary]) => (
+              <div key={label} className="border rounded-md p-4 space-y-1">
+                <h3 className="font-medium">{label}</h3>
+                <p className="text-sm">{summary.users.toLocaleString()} active users · {summary.requests.toLocaleString(undefined, { maximumFractionDigits: 2 })} requests</p>
+                {compareAIC && <p className="text-sm">{summary.aic.toLocaleString(undefined, { maximumFractionDigits: 2 })} AI credits</p>}
+              </div>
+            ))}
+          </div>
+          <p className="text-sm mt-3">
+            {userLists.cohort.length && activeProfile
+              ? `Cohort share of overall: ${baselineSummary.requests ? (cohortSummary.requests / baselineSummary.requests * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) : "0"}% of requests${compareAIC ? ` · ${baselineSummary.aic ? (cohortSummary.aic / baselineSummary.aic * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) : "0"}% of AI credits` : ""}.`
+              : "No cohort selected; dashboard defaults to the overall population."}
+          </p>
+        </Card>
+      )}
+
+      {rawData && !displayData?.length && (
+        <Card className="p-6 mb-6 text-sm text-muted-foreground" role="status">
+          No usage remains for this view and month. Change the month, cohort, exclusions, or selected user to see data.
+          <MonthSelector availableMonths={availableMonths} selectedMonth={selectedMonth} onMonthChange={handleMonthChange} data={rawData} />
+        </Card>
+      )}
       {displayData && displayData.length > 0 && (
         <div className="space-y-8">
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-2xl font-semibold mb-2">
                   Usage Statistics
@@ -1343,7 +1272,7 @@ function App() {
                 </h2>
                 {selectedSearchUser && (
                   <p className="text-sm text-muted-foreground">
-                    Showing data filtered for selected user. All panels below reflect this user's activity only.
+                    Showing data filtered for selected user. All panels below reflect this user's activity only; excluded users are never shown.
                   </p>
                 )}
               </div>
@@ -1351,7 +1280,7 @@ function App() {
                 <MonthSelector
                   availableMonths={availableMonths}
                   selectedMonth={selectedMonth}
-                  onMonthChange={setSelectedMonth}
+                  onMonthChange={handleMonthChange}
                   disabled={isProcessing}
                   data={rawData}
                 />
@@ -1367,7 +1296,7 @@ function App() {
                   <p className="text-muted-foreground">
                     {selectedSearchUser 
                       ? `Currently viewing data for ${displayUser(selectedSearchUser)}. All panels are filtered to show only this user's activity.`
-                      : "Search for a specific user to view their detailed usage statistics"
+                      : "Search an included user to view their detailed usage. A selected user temporarily overrides the cohort dashboard."
                     }
                   </p>
                 </div>
@@ -1510,7 +1439,7 @@ function App() {
                         {new Set(displayData.map(item => item.user)).size.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2" title="Total licensed seats — used as the denominator in the % Users with Overage chart. Leave empty to derive from active users in the data.">
+                    <div className="flex items-center gap-2" title="Eligible licensed seats after exclusions — used as the denominator in the % Users with Overage chart. Leave empty to derive from included active users.">
                       <span className="text-sm text-muted-foreground">Total Licensed Users:</span>
                       <input
                         type="number"
@@ -1936,7 +1865,7 @@ function App() {
             
             {/* Model Usage Table */}
             <div className="mb-6">
-              <Card className="p-5">
+              <Card className="p-5 min-w-0">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-md font-medium">
                     {unitLabel} per Model
@@ -1947,7 +1876,7 @@ function App() {
                     )}
                   </h3>
                 </div>
-                <div className="overflow-auto max-h-60">
+                <div className="overflow-auto max-h-60 min-w-0 max-w-full">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -2713,7 +2642,7 @@ function App() {
           </DialogHeader>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {data && (
+            {displayData && (
               <>
                 {/* Left Column */}
                 <div className="space-y-6">
@@ -2724,7 +2653,7 @@ function App() {
                       <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Total {unitLabel}:</span>
                         <span className="font-bold">
-                          {data.reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                          {displayData.reduce((sum, item) => sum + item.requestsUsed, 0).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -2735,7 +2664,7 @@ function App() {
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium">Total Hypothetical Cost:</span>
                         <span className="font-bold text-orange-600 text-lg">
-                          ${(data.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          ${(displayData.reduce((sum, item) => sum + item.requestsUsed, 0) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </span>
                       </div>
                     </div>
@@ -2794,7 +2723,7 @@ function App() {
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Exceeding Requests:</span>
                         <span className="font-bold text-red-600">
-                          {getTotalRequestsForUsersExceedingQuota(data, selectedPlan).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
+                          {getTotalRequestsForUsersExceedingQuota(displayData, selectedPlan).toLocaleString(undefined, {maximumFractionDigits: 2, minimumFractionDigits: 2})}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -2805,7 +2734,7 @@ function App() {
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium">Cost for Exceeding Requests Only:</span>
                         <span className="font-bold text-red-600 text-lg">
-                          ${(getTotalRequestsForUsersExceedingQuota(data, selectedPlan) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          ${(getTotalRequestsForUsersExceedingQuota(displayData, selectedPlan) * EXCESS_REQUEST_COST).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </span>
                       </div>
                     </div>

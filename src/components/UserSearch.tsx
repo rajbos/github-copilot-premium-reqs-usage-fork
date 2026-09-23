@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
 import { Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -89,16 +88,16 @@ export function UserSearch({
     : "Search for a user...";
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Search className="h-4 w-4 text-muted-foreground" />
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="w-[400px] justify-between"
+              className="w-full min-w-0 max-w-[400px] justify-between sm:w-[400px]"
               disabled={disabled || !data || data.length === 0}
             >
               <span className={selectedUser ? "text-foreground" : "text-muted-foreground"}>
@@ -107,7 +106,7 @@ export function UserSearch({
               <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0">
+          <PopoverContent className="w-[min(400px,calc(100vw-2rem))] p-0">
             <Command>
               <CommandInput 
                 placeholder="Search users..." 
@@ -171,7 +170,7 @@ export function UserSearch({
       
       {data && data.length > 0 && (
         <div className="text-sm text-muted-foreground">
-          {userStats.length} users available
+          {userStats.length.toLocaleString()} users available
         </div>
       )}
     </div>

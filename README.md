@@ -26,6 +26,15 @@ Result:
 - See request distribution by model
 - Track compliant vs. exceeding quota requests
 - Analyze usage patterns with daily breakdown charts
+- Compare a saved user cohort with the overall population and exclude accounts from all views
+
+### Enterprise profiles and user lists
+
+After uploading one or more usage exports, explicitly choose or create an enterprise profile. Usage exports do **not** reliably identify their enterprise: the `organization` column, file names, and usernames are not used to guess one. Each new upload starts without a selected profile; choose the correct one again to restore its lists. Do not combine exports from different enterprises in one upload.
+
+The **cohort** selects accounts to show in the dashboard; with no cohort selected, the dashboard shows the overall population. The **exclusion** list removes accounts from the overall population, cohort, user search, charts, and dialogs, even if they also appear in the cohort. A single-user search temporarily overrides the cohort view but never overrides exclusions. Comparison totals always use the selected month: overall is all loaded users minus exclusions, and cohort is selected users minus exclusions. Request totals and user counts are shown for both; AI credits are also compared when all included records contain the AIC quantity field. The plan selector updates plan-dependent dashboard calculations.
+
+Add or remove usernames in either searchable list, or import/export a separate CSV for each list. A list CSV contains one `username` column (header required), one username per row; quoted values and duplicate names are supported. Import **replaces** only that list. Usernames absent from the current export stay saved and are marked as such until another export includes them. Profile names and username lists remain in browser localStorage, separated by enterprise; usage rows are never persisted. Clearing browser site data removes saved profiles and lists. If stored data is damaged, an error and explicit reset action are shown rather than applying it silently.
 
 ## Getting Started
 
