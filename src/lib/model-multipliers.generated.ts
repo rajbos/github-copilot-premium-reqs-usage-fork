@@ -5,7 +5,7 @@
 //
 // To make manual changes, edit `model-multipliers.legacy.ts` instead.
 
-export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-09-11-081258';
+export const CURRENT_MODELS_SOURCE_RELEASE = 'models-2026-09-29-081429';
 
 export const CURRENT_MODEL_COSTS: Record<string, number> = {
   'GPT-5 mini': 2,
@@ -18,6 +18,8 @@ export const CURRENT_MODEL_COSTS: Record<string, number> = {
   'GPT-5.6 Sol': 20,
   'GPT-5.6 Terra': 12,
   'GPT-6 Astra': 50,
+  'GPT-6 Luna': 0.5,
+  'GPT-6 Sol': 10,
 };
 
 // Models with a $0 cost (free) are treated as "Default" and grouped together.
