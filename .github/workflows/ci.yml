@@ -17,6 +17,10 @@ on:
       - 'LICENSE'
       - 'SECURITY.md'
 
+  # Manual runs, and dispatched by update-model-multipliers.yml: PRs pushed with
+  # GITHUB_TOKEN don't trigger pull_request/push workflows, but dispatch does.
+  workflow_dispatch:
+
 # Allow only one concurrent CI run per branch/PR
 concurrency:
   group: "ci-${{ github.head_ref || github.ref }}"

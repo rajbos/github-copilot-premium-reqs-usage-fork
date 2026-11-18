@@ -29,10 +29,34 @@ export const LEGACY_MODEL_COSTS: Record<string, number> = {
   'o3-mini-2025-01-31': 0.0132,
   'o4-mini': 0.0132,
   'o4-mini-2025-04-16': 0.0132,
+  // Retired from the upstream "current models" list (last seen in
+  // release models-2026-05-29-091242) but still present in historical exports.
+  'Claude Haiku 4.5': 0.33,
+  'Claude Opus 4.5': 3,
+  'Claude Opus 4.6': 3,
+  'Claude Opus 4.6 (fast mode) (preview)': 30,
+  'Claude Opus 4.7': 15,
+  'Claude Sonnet 4.5': 1,
+  'Claude Sonnet 4.6': 1,
+  'Gemini 2.5 Pro': 1,
+  'Gemini 3 Flash': 0.33,
+  'Gemini 3.1 Pro': 1,
+  'Gemini 3.5 Flash': 14,
+  'GPT-4.1': 0,
+  'GPT-5 mini': 0,
+  'GPT-5.2': 1,
+  'GPT-5.2-Codex': 1,
+  'GPT-5.4': 1,
+  'GPT-5.4 mini': 0.33,
+  'GPT-5.5': 7.5,
+  'Raptor mini': 0,
 };
 
 // Legacy default model identifiers (always grouped under "Default").
 export const LEGACY_DEFAULT_MODELS: string[] = [
   'gpt-4o-2024-11-20',
   'gpt-4.1-2025-04-14',
+  'GPT-4.1',
+  'GPT-5 mini',
+  'Raptor mini',
 ];
